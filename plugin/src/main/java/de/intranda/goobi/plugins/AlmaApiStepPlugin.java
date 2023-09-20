@@ -36,15 +36,15 @@ import net.xeoh.plugins.base.annotations.PluginImplementation;
 
 @PluginImplementation
 @Log4j2
-public class SampleStepPlugin implements IStepPluginVersion2 {
-    
+public class AlmaApiStepPlugin implements IStepPluginVersion2 {
+
     @Getter
-    private String title = "intranda_step_sample";
+    private String title = "intranda_step_alma_api";
     @Getter
     private Step step;
     @Getter
     private String value;
-    @Getter 
+    @Getter
     private boolean allowTaskFinishButtons;
     private String returnPath;
 
@@ -52,25 +52,22 @@ public class SampleStepPlugin implements IStepPluginVersion2 {
     public void initialize(Step step, String returnPath) {
         this.returnPath = returnPath;
         this.step = step;
-                
+
         // read parameters from correct block in configuration file
         SubnodeConfiguration myconfig = ConfigPlugins.getProjectAndStepConfig(title, step);
-        value = myconfig.getString("value", "default value"); 
+        value = myconfig.getString("value", "default value");
         allowTaskFinishButtons = myconfig.getBoolean("allowTaskFinishButtons", false);
-        log.info("Sample step plugin initialized");
+        log.info("AlmaApi step plugin initialized");
     }
 
     @Override
     public PluginGuiType getPluginGuiType() {
-        return PluginGuiType.FULL;
-        // return PluginGuiType.PART;
-        // return PluginGuiType.PART_AND_FULL;
-        // return PluginGuiType.NONE;
+        return PluginGuiType.NONE;
     }
 
     @Override
     public String getPagePath() {
-        return "/uii/plugin_step_sample.xhtml";
+        return "/uii/plugin_step_alma_api.xhtml";
     }
 
     @Override
@@ -87,7 +84,7 @@ public class SampleStepPlugin implements IStepPluginVersion2 {
     public String finish() {
         return "/uii" + returnPath;
     }
-    
+
     @Override
     public int getInterfaceVersion() {
         return 0;
@@ -97,7 +94,7 @@ public class SampleStepPlugin implements IStepPluginVersion2 {
     public HashMap<String, StepReturnValue> validate() {
         return null;
     }
-    
+
     @Override
     public boolean execute() {
         PluginReturnValue ret = run();
@@ -108,8 +105,8 @@ public class SampleStepPlugin implements IStepPluginVersion2 {
     public PluginReturnValue run() {
         boolean successful = true;
         // your logic goes here
-        
-        log.info("Sample step plugin executed");
+
+        log.info("AlmaApi step plugin executed");
         if (!successful) {
             return PluginReturnValue.ERROR;
         }
