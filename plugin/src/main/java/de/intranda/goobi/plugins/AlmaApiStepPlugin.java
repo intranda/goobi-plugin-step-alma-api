@@ -28,7 +28,6 @@ import java.util.Map;
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.configuration.SubnodeConfiguration;
 import org.apache.http.HttpEntity;
-import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
 import org.apache.http.client.methods.HttpGet;
@@ -71,13 +70,19 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
     // create a custom response handler
     private static final ResponseHandler<String> RESPONSE_HANDLER = response -> {
-        int status = response.getStatusLine().getStatusCode();
-        if (status >= 200 && status < 300) {
-            HttpEntity entity = response.getEntity();
-            return entity != null ? EntityUtils.toString(entity) : null;
-        } else {
-            throw new ClientProtocolException("Unexpected response status: " + status);
-        }
+        HttpEntity entity = response.getEntity();
+        return entity != null ? EntityUtils.toString(entity) : null;
+
+        //        int status = response.getStatusLine().getStatusCode();
+        //        
+        //        if (status >= 200 && status < 300) {
+        //            HttpEntity entity = response.getEntity();
+        //            return entity != null ? EntityUtils.toString(entity) : null;
+        //        } else {
+        //            HttpEntity entity = response.getEntity();
+        //            log.debug("error entity = " + EntityUtils.toString(entity));
+        //            throw new ClientProtocolException("Unexpected response status: " + status);
+        //        }
     };
 
     @Override
