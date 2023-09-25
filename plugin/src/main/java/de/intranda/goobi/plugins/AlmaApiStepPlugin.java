@@ -1,7 +1,3 @@
-package de.intranda.goobi.plugins;
-
-import java.util.ArrayList;
-
 /**
  * This file is part of a plugin for Goobi - a Workflow tool for the support of mass digitization.
  *
@@ -21,11 +17,28 @@ import java.util.ArrayList;
  *
  */
 
+package de.intranda.goobi.plugins;
+
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.configuration.SubnodeConfiguration;
+import org.apache.http.HttpEntity;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.ResponseHandler;
+import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPatch;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpPut;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 import org.goobi.beans.Step;
 import org.goobi.production.enums.PluginGuiType;
 import org.goobi.production.enums.PluginReturnValue;
@@ -55,6 +68,17 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
     private String url;
     private String apiKey;
     private List<AlmaApiCommand> commandList = new ArrayList<>();
+
+    // create a custom response handler
+    private static final ResponseHandler<String> RESPONSE_HANDLER = response -> {
+        int status = response.getStatusLine().getStatusCode();
+        if (status >= 200 && status < 300) {
+            HttpEntity entity = response.getEntity();
+            return entity != null ? EntityUtils.toString(entity) : null;
+        } else {
+            throw new ClientProtocolException("Unexpected response status: " + status);
+        }
+    };
 
     @Override
     public void initialize(Step step, String returnPath) {
@@ -121,8 +145,109 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
     public PluginReturnValue run() {
         boolean successful = true;
         // your logic goes here
+        for (AlmaApiCommand command : commandList) {
+            // get method
+            String method = command.getMethod();
+
+            // get the full request url
+            String endpoint = command.getEndpoint();
+            Map<String, String> parameters = command.getParametersMap();
+            String requestUrl = createRequestUrl(endpoint, parameters);
+            log.debug("requestUrl = " + requestUrl);
+            
+            // run the command
+            runCommand(method, requestUrl);
+
+        }
 
         log.info("AlmaApi step plugin executed");
         return successful ? PluginReturnValue.FINISH : PluginReturnValue.ERROR;
     }
+
+    private String createRequestUrl(String endpoint, Map<String, String> parameters) {
+        // combine url and endpoint to form the base
+        StringBuilder urlBuilder = new StringBuilder(url);
+        if (!url.endsWith("/") && !endpoint.startsWith("/")) {
+            urlBuilder.append("/");
+        }
+        urlBuilder.append(endpoint);
+        urlBuilder.append("?");
+
+        // append all parameters
+        for (Map.Entry<String, String> parameter : parameters.entrySet()) {
+            String parameterName = parameter.getKey();
+            String parameterValue = parameter.getValue();
+            urlBuilder.append(parameterName)
+                    .append("=")
+                    .append(parameterValue)
+                    .append("&");
+        }
+
+        // append the api key
+        urlBuilder.append("apikey=")
+                .append(apiKey);
+
+        return urlBuilder.toString();
+    }
+
+    private void runCommand(String method, String url) {
+        runCommand(method, url, "");
+    }
+
+    private void runCommand(String method, String url, String json) {
+        if (method.toLowerCase().equals("get")) {
+            runCommandGet(url);
+        } else {
+            runCommandNonGet(method, url, json);
+        }
+    }
+
+    private void runCommandGet(String url) {
+        HttpGet httpGet = new HttpGet(url);
+        try (CloseableHttpClient client = HttpClients.createDefault()) {
+            httpGet.setHeader("Accept", "application/json");
+            httpGet.setHeader("Content-type", "application/json");
+
+            log.info("Executing request " + httpGet.getRequestLine());
+
+            String responseBody = client.execute(httpGet, RESPONSE_HANDLER);
+            log.debug(responseBody);
+
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+
+    private void runCommandNonGet(String method, String url, String json) {
+        HttpEntityEnclosingRequestBase httpBase;
+        switch (method.toLowerCase()) {
+            case "put":
+                httpBase = new HttpPut(url);
+                break;
+            case "post":
+                httpBase = new HttpPost(url);
+                break;
+            case "patch":
+                httpBase = new HttpPatch(url);
+            default: // unknown
+                return;
+        }
+
+        try (CloseableHttpClient client = HttpClients.createDefault()) {
+            httpBase.setHeader("Accept", "application/json");
+            httpBase.setHeader("Content-type", "application/json");
+            httpBase.setEntity(new StringEntity(json));
+
+            log.info("Executing request " + httpBase.getRequestLine());
+
+            String responseBody = client.execute(httpBase, RESPONSE_HANDLER);
+            log.debug(responseBody);
+
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+
 }

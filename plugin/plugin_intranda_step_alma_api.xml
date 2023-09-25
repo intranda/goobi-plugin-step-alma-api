@@ -39,8 +39,8 @@
         	<mms_id>990113435690205508</mms_id>
         	<holding_id>87902</holding_id>
         	<item_pid>27</item_pid>
-        	<parameter>hello</parameter>
-        	<parameter>world</parameter>
+        	<parameter name="H" value="hello" />
+        	<parameter name="W" value="world" />
         </command>
         
     </config>
