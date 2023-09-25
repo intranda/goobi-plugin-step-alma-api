@@ -21,9 +21,10 @@
         
         <api-key>l8xxa42ba0d30eb740dcb7068e9f4ac2f634</api-key>
         
-        <command>
+        <command method="get" endpoint="/almaws/v1/bibs/{mms_id}/holdings">
+        	<!--
         	<endpoint>/almaws/v1/bibs/{mms_id}/holdings</endpoint>
-        	<method>get</method>
+        	-->
         	<mms_id>990113435690205508</mms_id>
         	<!-- 
         	<parameter></parameter>
@@ -31,9 +32,10 @@
         	-->
         </command>
         
-        <command>
+        <command method="get" endpoint="/almaws/v1/bibs/{mms_id}/holdings/{holding_id}/items/{item_pid}">
+        	<!--
         	<endpoint>/almaws/v1/bibs/{mms_id}/holdings/{holding_id}/items/{item_pid}</endpoint>
-        	<method>get</method>
+        	-->
         	<mms_id>990113435690205508</mms_id>
         	<holding_id>87902</holding_id>
         	<item_pid>27</item_pid>
