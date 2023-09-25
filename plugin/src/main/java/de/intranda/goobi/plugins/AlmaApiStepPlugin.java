@@ -1,5 +1,7 @@
 package de.intranda.goobi.plugins;
 
+import java.util.ArrayList;
+
 /**
  * This file is part of a plugin for Goobi - a Workflow tool for the support of mass digitization.
  *
@@ -20,7 +22,9 @@ package de.intranda.goobi.plugins;
  */
 
 import java.util.HashMap;
+import java.util.List;
 
+import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.configuration.SubnodeConfiguration;
 import org.goobi.beans.Step;
 import org.goobi.production.enums.PluginGuiType;
@@ -48,15 +52,27 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
     private boolean allowTaskFinishButtons;
     private String returnPath;
 
+    private String url;
+    private String apiKey;
+    private List<AlmaApiCommand> commandList = new ArrayList<>();
+
     @Override
     public void initialize(Step step, String returnPath) {
         this.returnPath = returnPath;
         this.step = step;
 
         // read parameters from correct block in configuration file
-        SubnodeConfiguration myconfig = ConfigPlugins.getProjectAndStepConfig(title, step);
-        value = myconfig.getString("value", "default value");
-        allowTaskFinishButtons = myconfig.getBoolean("allowTaskFinishButtons", false);
+        SubnodeConfiguration config = ConfigPlugins.getProjectAndStepConfig(title, step);
+        value = config.getString("value", "default value");
+        allowTaskFinishButtons = config.getBoolean("allowTaskFinishButtons", false);
+
+        url = config.getString("url", "");
+        apiKey = config.getString("api-key", "");
+        List<HierarchicalConfiguration> commandConfigs = config.configurationsAt("command");
+        for (HierarchicalConfiguration commandConfig : commandConfigs) {
+            commandList.add(new AlmaApiCommand(commandConfig));
+        }
+
         log.info("AlmaApi step plugin initialized");
     }
 
@@ -107,9 +123,6 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         // your logic goes here
 
         log.info("AlmaApi step plugin executed");
-        if (!successful) {
-            return PluginReturnValue.ERROR;
-        }
-        return PluginReturnValue.FINISH;
+        return successful ? PluginReturnValue.FINISH : PluginReturnValue.ERROR;
     }
 }
