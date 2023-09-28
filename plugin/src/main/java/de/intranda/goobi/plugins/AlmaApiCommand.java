@@ -1,8 +1,11 @@
 package de.intranda.goobi.plugins;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -14,17 +17,36 @@ import lombok.extern.log4j.Log4j2;
 @Log4j2
 public class AlmaApiCommand {
     // pattern that matches every block enclosed by a pair of {}
-    private static final Pattern pattern = Pattern.compile("(\\{[^\\{\\}]*\\})");
+    private static final Pattern PATTERN = Pattern.compile("(\\{[^\\{\\}]*\\})");
+    private static final Pattern VARIABLE_PATTERN = Pattern.compile("(\\{\\$[^\\{\\}]*\\})");
+    //    private static final Pattern VARIABLE_PATTERN = Pattern.compile("(\\$[^\\{\\}]*)");
+    private static final Map<String, List<String>> STATIC_VARIABLES_MAP = new HashMap<>();
+    //    @Getter
+    //    private String endpoint;
     @Getter
-    private String endpoint;
+    private List<String> endpoints;
     @Getter
     private String method;
     @Getter
     private Map<String, String> parametersMap = new HashMap<>();
 
+    @Getter
+    private String filterKey;
+    @Getter
+    private String filterValue;
+    @Getter
+    private String filterAlternativeOption;
+    @Getter
+    private String targetVariable;
+    @Getter
+    private String targetPath;
+
+    //    private List<String> staticVariablesNeeded = new ArrayList<>(); // variables that shall be used to complete the endpoint, formulated as {$VARIALBE_NAME}
+
     public AlmaApiCommand(HierarchicalConfiguration config) {
         String rawEndpoint = config.getString("@endpoint");
-        endpoint = completeEndpoint(rawEndpoint, config);
+        //        endpoint = completeEndpoint(rawEndpoint, config);
+        initializeEndpoints(rawEndpoint, config);
         method = config.getString("@method");
 
         List<HierarchicalConfiguration> parameterConfigs = config.configurationsAt("parameter");
@@ -34,12 +56,108 @@ public class AlmaApiCommand {
             parametersMap.put(parameterName, parameterValue);
         }
         
-        log.debug("endpoint = " + endpoint);
+        HierarchicalConfiguration filterConfig = config.configurationAt("filter");
+        initializeFilterFields(filterConfig);
+        
+        HierarchicalConfiguration targetConfig = config.configurationAt("target");
+        initializeTargetFields(targetConfig);
+
+        //        log.debug("endpoint = " + endpoint);
         log.debug("method = " + method);
     }
 
+    private void initializeEndpoints(String rawEndpoint, HierarchicalConfiguration config) {
+        String rawEndpointReplaced = completeEndpoint(rawEndpoint, config);
+
+        endpoints = new ArrayList<>();
+        endpoints.add(rawEndpointReplaced);
+
+        // static variables may be multiple, but configurable variables will appear only once
+        // get the list of all static variables that will be used
+        Set<String> staticVariablesNeeded = getStaticVariablesNeeded(rawEndpointReplaced);
+        if (staticVariablesNeeded == null) {
+            // TODO: report error
+            return;
+        }
+
+        for (String staticVariable : staticVariablesNeeded) {
+            // staticVariable is key in the STATIC_VARIABLES_MAP, and it also appears as context in the endpoint
+            // hence just replace them with values from the STATIC_VARIABLES_MAP
+            endpoints = replaceStaticVariableInEndpoints(endpoints, staticVariable);
+        }
+        
+        // TODO: check existence of other variables, and if so, report error
+
+        // replace all configurable variables in all endpoints
+        //        endpoints = replaceAllCustomVariablesInEndpoints(endpoints, config);
+    }
+
+    private Set<String> getStaticVariablesNeeded(String line) {
+        Set<String> variables = new HashSet<>();
+
+        Matcher matcher = VARIABLE_PATTERN.matcher(line);
+        while (matcher.find()) {
+            String variableName = matcher.group();
+            log.debug("static variable detected: " + variableName);
+            if (STATIC_VARIABLES_MAP.containsKey(variableName)) {
+                variables.add(variableName);
+            } else {
+                // unknown static variable
+                log.debug("unknown static variable detected: " + variableName);
+                return null; // as error code
+            }
+        }
+
+        return variables;
+    }
+
+    private List<String> replaceStaticVariableInEndpoints(List<String> rawEndpoints, String staticVariable) {
+        List<String> results = new ArrayList<>();
+        for (String rawEndpoint : rawEndpoints) {
+            List<String> endpoints = replaceStaticVariableInEndpoint(rawEndpoint, staticVariable);
+            results.addAll(endpoints);
+        }
+
+        return results;
+    }
+
+    private List<String> replaceStaticVariableInEndpoint(String rawEndpoint, String staticVariable) {
+        List<String> results = new ArrayList<>();
+        List<String> possibleValues = STATIC_VARIABLES_MAP.get(staticVariable);
+        for (String value : possibleValues) {
+            String endpoint = rawEndpoint.replace(staticVariable, value);
+            results.add(endpoint);
+        }
+
+        return results;
+    }
+
+    private void initializeFilterFields(HierarchicalConfiguration config) {
+        filterKey = config.getString("@key");
+        filterValue = config.getString("@value");
+        filterAlternativeOption = config.getString("@alt"); // all | none | first | last | random
+        // TODO: check option
+    }
+
+    private void initializeTargetFields(HierarchicalConfiguration config) {
+        targetVariable = config.getString("@var");
+        targetPath = config.getString("@path");
+    }
+
+    private List<String> replaceAllCustomVariablesInEndpoints(List<String> rawEndpoints, HierarchicalConfiguration config) {
+        List<String> results = new ArrayList<>();
+
+        for (String rawEndpoint : rawEndpoints) {
+            String endpoint = completeEndpoint(rawEndpoint, config);
+            results.add(endpoint);
+        }
+
+        return results;
+    }
+
     private String completeEndpoint(String rawEndpoint, HierarchicalConfiguration config) {
-        Map<String, String> variablesMap = getVariablesMap(rawEndpoint);
+        // replace all configured variables to complete the endpoint
+        Map<String, String> variablesMap = getCustomVariablesMap(rawEndpoint); // {mms_id} -> mms_id
         String result = rawEndpoint;
         for (Map.Entry<String, String> variable : variablesMap.entrySet()) {
             String variableContext = variable.getKey();
@@ -49,13 +167,18 @@ public class AlmaApiCommand {
             result = result.replace(variableContext, variableValue);
         }
 
+        // report error if there are still {} left
+        //        if (result.contains("{") || result.contains("}")) {
+        //            // TODO: report error
+        //        }
+
         return result;
     }
 
-    private Map<String, String> getVariablesMap(String line) {
+    private Map<String, String> getCustomVariablesMap(String line) {
         Map<String, String> variablesMap = new HashMap<>();
         // get a list of all variables enclosed in {}
-        Matcher matcher = pattern.matcher(line);
+        Matcher matcher = PATTERN.matcher(line);
         while (matcher.find()) {
             String matchedText = matcher.group();
             log.debug("matchedText = " + matchedText);
@@ -65,6 +188,35 @@ public class AlmaApiCommand {
         }
 
         return variablesMap;
+    }
+
+    public static void updateStaticVariablesMap(String key, List<String> values) {
+        if (STATIC_VARIABLES_MAP.containsKey(key)) {
+            // report error
+            return;
+        }
+
+        String wrappedKey = wrapKey(key);
+
+        STATIC_VARIABLES_MAP.put(wrappedKey, values);
+    }
+
+    private static String wrapKey(String key) {
+        //        Consumer<String> getEnding = (s) -> {return s.endsWith("}") ? "" : "}";};
+
+        if (key.startsWith("{$")) {
+            return key + (key.endsWith("}") ? "" : "}");
+        }
+
+        if (key.startsWith("$")) {
+            return "{" + key + (key.endsWith("}") ? "" : "}");
+        }
+
+        if (key.startsWith("{")) {
+            return "{$" + key.substring(1) + (key.endsWith("}") ? "" : "}");
+        }
+
+        return "{$" + key + (key.endsWith("}") ? "" : "}");
     }
 
 }

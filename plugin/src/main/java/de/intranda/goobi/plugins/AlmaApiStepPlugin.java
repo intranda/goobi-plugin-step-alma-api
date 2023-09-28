@@ -94,6 +94,10 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         SubnodeConfiguration config = ConfigPlugins.getProjectAndStepConfig(title, step);
         value = config.getString("value", "default value");
         allowTaskFinishButtons = config.getBoolean("allowTaskFinishButtons", false);
+        boolean testRun = config.getBoolean("test", false);
+        if (testRun) {
+            prepareStaticVariablesMapForTest();
+        }
 
         url = config.getString("url", "");
         apiKey = config.getString("api-key", "");
@@ -103,6 +107,30 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         }
 
         log.info("AlmaApi step plugin initialized");
+    }
+
+    /**
+     * prepare sample variables to test
+     */
+    private void prepareStaticVariablesMapForTest() {
+        String var1 = "{$hello}";
+        List<String> var1Values = new ArrayList<>();
+        var1Values.add("HALLO");
+        var1Values.add("WELT");
+
+        String var2 = "what";
+        List<String> var2Values = new ArrayList<>();
+        var2Values.add("WAS");
+        var2Values.add("WHAT");
+
+        String var3 = "$anything";
+        List<String> var3Values = new ArrayList<>();
+        var3Values.add("AHA");
+        var3Values.add("BOBO");
+
+        AlmaApiCommand.updateStaticVariablesMap(var1, var1Values);
+        AlmaApiCommand.updateStaticVariablesMap(var2, var2Values);
+        AlmaApiCommand.updateStaticVariablesMap(var3, var3Values);
     }
 
     @Override
@@ -154,14 +182,24 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             // get method
             String method = command.getMethod();
 
-            // get the full request url
-            String endpoint = command.getEndpoint();
             Map<String, String> parameters = command.getParametersMap();
-            String requestUrl = createRequestUrl(endpoint, parameters);
-            log.debug("requestUrl = " + requestUrl);
+            List<String> endpoints = command.getEndpoints();
+            for (String endpoint : endpoints) {
+                String requestUrl = createRequestUrl(endpoint, parameters);
+                log.debug("requestUrl = " + requestUrl);
+
+                // run the command
+                //                runCommand(method, requestUrl);
+            }
             
-            // run the command
-            runCommand(method, requestUrl);
+            // get the full request url
+            //            String endpoint = command.getEndpoint();
+            //            Map<String, String> parameters = command.getParametersMap();
+            //            String requestUrl = createRequestUrl(endpoint, parameters);
+            //            log.debug("requestUrl = " + requestUrl);
+            //            
+            //            // run the command
+            //            runCommand(method, requestUrl);
 
         }
 
