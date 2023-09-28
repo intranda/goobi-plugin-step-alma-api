@@ -197,6 +197,8 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                 log.debug("------- jsonObject -------");
                 log.debug(jsonObject.toString());
 
+                String targetPath = command.getTargetPath();
+                
                 String filterKey = command.getFilterKey();
                 if (StringUtils.isNotBlank(filterKey)) {
                     String filterValue = command.getFilterValue();
@@ -214,6 +216,20 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                             log.debug("object is just some normal value");
                         }
                     }
+                    
+                    List<Object> commonParents = JSONUtils.getCommonParents(targetPath, filterKey, jsonObject);
+                    for (Object parentObject : commonParents) {
+                        String parentValue = String.valueOf(parentObject);
+                        log.debug("parentValue = " + parentValue);
+                        if (parentObject instanceof JSONArray) {
+                            log.debug("parentObject is JSONArray");
+                        } else if (parentObject instanceof JSONObject) {
+                            log.debug("parentObject is JSONObject");
+                        } else {
+                            log.debug("parentObject is just some normal value");
+                        }
+                    }
+                    
                 }
 
             }
