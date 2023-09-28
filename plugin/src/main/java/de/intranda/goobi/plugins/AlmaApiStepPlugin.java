@@ -27,6 +27,7 @@ import java.util.Map;
 
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.configuration.SubnodeConfiguration;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
@@ -44,6 +45,9 @@ import org.goobi.production.enums.PluginReturnValue;
 import org.goobi.production.enums.PluginType;
 import org.goobi.production.enums.StepReturnValue;
 import org.goobi.production.plugin.interfaces.IStepPluginVersion2;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.ParseException;
 
 import de.sub.goobi.config.ConfigPlugins;
 import lombok.Getter;
@@ -189,7 +193,29 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                 log.debug("requestUrl = " + requestUrl);
 
                 // run the command
-                //                runCommand(method, requestUrl);
+                JSONObject jsonObject = runCommand(method, requestUrl);
+                log.debug("------- jsonObject -------");
+                log.debug(jsonObject.toString());
+
+                String filterKey = command.getFilterKey();
+                if (StringUtils.isNotBlank(filterKey)) {
+                    String filterValue = command.getFilterValue();
+                    String filterAlternativeOption = command.getFilterAlternativeOption();
+
+                    List<Object> objects = JSONUtils.getValuesFromSource(filterKey, jsonObject);
+                    for (Object object : objects) {
+                        String objectValue = String.valueOf(object);
+                        log.debug("objectValue = " + objectValue);
+                        if (object instanceof JSONArray) {
+                            log.debug("object is JSONArray");
+                        } else if (object instanceof JSONObject) {
+                            log.debug("object is JSONObject");
+                        } else {
+                            log.debug("object is just some normal value");
+                        }
+                    }
+                }
+
             }
             
             // get the full request url
@@ -233,19 +259,19 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         return urlBuilder.toString();
     }
 
-    private void runCommand(String method, String url) {
-        runCommand(method, url, "");
+    private JSONObject runCommand(String method, String url) {
+        return runCommand(method, url, "");
     }
 
-    private void runCommand(String method, String url, String json) {
+    private JSONObject runCommand(String method, String url, String json) {
         if (method.toLowerCase().equals("get")) {
-            runCommandGet(url);
+            return runCommandGet(url);
         } else {
-            runCommandNonGet(method, url, json);
+            return runCommandNonGet(method, url, json);
         }
     }
 
-    private void runCommandGet(String url) {
+    private JSONObject runCommandGet(String url) {
         HttpGet httpGet = new HttpGet(url);
         try (CloseableHttpClient client = HttpClients.createDefault()) {
             httpGet.setHeader("Accept", "application/json");
@@ -256,13 +282,21 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             String responseBody = client.execute(httpGet, RESPONSE_HANDLER);
             log.debug(responseBody);
 
+            return JSONUtils.getJSONObjectFromString(responseBody);
+
         } catch (IOException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
+            return null;
+
+        } catch (ParseException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+            return null;
         }
     }
 
-    private void runCommandNonGet(String method, String url, String json) {
+    private JSONObject runCommandNonGet(String method, String url, String json) {
         HttpEntityEnclosingRequestBase httpBase;
         switch (method.toLowerCase()) {
             case "put":
@@ -274,7 +308,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             case "patch":
                 httpBase = new HttpPatch(url);
             default: // unknown
-                return;
+                return null;
         }
 
         try (CloseableHttpClient client = HttpClients.createDefault()) {
@@ -286,10 +320,17 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
             String responseBody = client.execute(httpBase, RESPONSE_HANDLER);
             log.debug(responseBody);
+            return JSONUtils.getJSONObjectFromString(responseBody);
 
         } catch (IOException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
+            return null;
+
+        } catch (ParseException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+            return null;
         }
     }
 
