@@ -2,6 +2,7 @@ package de.intranda.goobi.plugins;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import org.apache.commons.lang3.StringUtils;
 import org.json.simple.JSONArray;
@@ -14,6 +15,28 @@ public class JSONUtils {
 
     public static JSONObject getJSONObjectFromString(String s) throws ParseException {
         return (JSONObject) JSON_PARSER.parse(s);
+    }
+
+    public static List<Object> getValuesFromSourceGeneral(String source, Object obj) {
+        if (obj instanceof JSONArray) {
+            return getValuesFromSource(source, (JSONArray) obj);
+        }
+
+        if (obj instanceof JSONObject) {
+            return getValuesFromSource(source, (JSONObject) obj);
+        }
+
+        // unknown obj, report error
+        return new ArrayList<>();
+    }
+
+    public static List<Object> getValuesFromSourceGeneral(String source, List<Object> objects) {
+        List<Object> results = new ArrayList<>();
+        for (Object obj : objects) {
+            results.addAll(getValuesFromSourceGeneral(source, obj));
+        }
+
+        return results;
     }
 
     public static List<Object> getValuesFromSource(String source, JSONObject jsonObject) {
@@ -222,7 +245,7 @@ public class JSONUtils {
         return results;
     }
 
-    public static List<Object> getFilteredObjectsFromSource(String targetPath, String filterPath, String filterValue, String filterAlternativeOption,
+    public static List<Object> getFilteredValuesFromSource(String targetPath, String filterPath, String filterValue, String filterAlternativeOption,
             JSONObject jsonObject) {
         List<Object> results = new ArrayList<>();
 
@@ -237,14 +260,26 @@ public class JSONUtils {
         String filterTail = getPathTail(filterPath, commonHeading);
         String targetTail = getPathTail(targetPath, commonHeading);
         for (Object obj : commonParents) {
-            if (obj instanceof JSONArray) {
-                JSONArray subJsonArray = (JSONArray) obj;
-                // check existence of filterValue, and if so retrieve the targetValue
+            // check existence of filterValue, and if so retrieve the targetValue
+            boolean filterValueMatches = isJsonValueAMatch(filterTail, filterValue, obj);
+            if (filterValueMatches) {
+                results.addAll(getValuesFromSourceGeneral(targetTail, obj));
+            }
+        }
 
-            } else {
-                JSONObject subJsonObject = (JSONObject) obj;
-                // check existence of filterValue, and if so retrieve the targetValue
-
+        // in case of empty results, check filterAlternativeOption
+        if (results.isEmpty()) {
+            switch (StringUtils.lowerCase(filterAlternativeOption)) {
+                case "all":
+                    return getValuesFromSourceGeneral(targetTail, commonParents);
+                case "first":
+                    return getValuesFromSourceGeneral(targetTail, commonParents.get(0));
+                case "last":
+                    return getValuesFromSourceGeneral(targetTail, commonParents.get(commonParents.size() - 1));
+                case "random":
+                    return getValuesFromSourceGeneral(targetTail, commonParents.get(new Random().nextInt(commonParents.size())));
+                default:
+                    // nothing special
             }
         }
 
@@ -280,5 +315,21 @@ public class JSONUtils {
 
         return StringUtils.strip(filterTail, ".");
     }
+
+    private static boolean isJsonValueAMatch(String path, String value, Object obj) {
+        // get a list of values from the path
+        List<Object> values = getValuesFromSourceGeneral(path, obj);
+        for (Object v : values) {
+            String valueString = String.valueOf(v);
+            if (value.equals(valueString)) {
+                return true;
+            }
+        }
+
+        // other cases
+        return false;
+    }
+
+
 
 }
