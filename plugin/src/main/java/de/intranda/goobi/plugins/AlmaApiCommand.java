@@ -224,18 +224,25 @@ public class AlmaApiCommand {
         return variablesMap;
     }
 
-    public static void updateStaticVariablesMap(String variable, List<String> values) {
+    public static boolean updateStaticVariablesMap(String variable, List<String> values) {
         String wrappedKey = wrapKey(variable);
         log.debug("updating variable: " + wrappedKey);
 
         if (STATIC_VARIABLES_MAP.containsKey(wrappedKey)) {
             // report error
             log.debug("The variable '" + variable + "' already exists. Aborting...");
-            return;
+            return false;
+        }
+
+        if (values == null || values.isEmpty()) {
+            // report error
+            log.debug("The value of the new variable '" + variable + "' should not be empty or null.");
+            return false;
         }
 
         STATIC_VARIABLES_MAP.put(wrappedKey, values);
         log.debug("Static variables map updated: " + wrappedKey + " -> " + values.toString());
+        return true;
     }
 
     private static String wrapKey(String key) {

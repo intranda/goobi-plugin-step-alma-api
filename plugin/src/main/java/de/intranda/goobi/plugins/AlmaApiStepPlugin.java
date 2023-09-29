@@ -225,7 +225,11 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                     for (String targetValue : targetValues) {
                         log.debug("targetValue = " + targetValue);
                     }
-                    AlmaApiCommand.updateStaticVariablesMap(targetVariable, targetValues);
+                    boolean staticVariablesUpdated = AlmaApiCommand.updateStaticVariablesMap(targetVariable, targetValues);
+                    if (!staticVariablesUpdated) {
+                        log.debug("static variables map was not successfully updated");
+                        // report error
+                    }
                 }
 
             }
