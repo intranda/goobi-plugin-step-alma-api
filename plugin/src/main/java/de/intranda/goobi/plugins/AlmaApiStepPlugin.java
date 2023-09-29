@@ -230,6 +230,14 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                         }
                     }
                     
+                    String commonHeading = JSONUtils.getCommonHeading(targetPath, filterKey);
+                    log.debug("commonHeading = " + commonHeading);
+                    List<Object> parents = JSONUtils.getCommonParents(commonHeading, jsonObject);
+                    for (Object parent : parents) {
+                        String parentValue = String.valueOf(parent);
+                        log.debug("parentValue = " + parentValue);
+                    }
+
                 }
 
             }

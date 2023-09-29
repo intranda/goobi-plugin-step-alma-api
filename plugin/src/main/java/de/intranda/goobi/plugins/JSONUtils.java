@@ -3,6 +3,7 @@ package de.intranda.goobi.plugins;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.lang3.StringUtils;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -155,19 +156,129 @@ public class JSONUtils {
         return results;
     }
 
+    public static List<Object> getCommonParents(String commonHeading, JSONObject jsonObject) {
+        List<Object> results = new ArrayList<>();
+
+        // base case 1: no commonHeading available, then the current JSONObject is their common parent
+        if (StringUtils.isBlank(commonHeading)) {
+            results.add(jsonObject);
+            return results;
+        }
+
+        // base case 2: commonHeading does not contain dot
+        if (!commonHeading.contains(".")) {
+            results.add(jsonObject.get(commonHeading));
+            return results;
+        }
+
+        // otherwise, move forward by one step
+        int splittingIndex = commonHeading.indexOf(".");
+        String head = commonHeading.substring(0, splittingIndex);
+        String tail = commonHeading.substring(splittingIndex + 1);
+
+        Object obj = jsonObject.get(head);
+        if (obj instanceof JSONArray) {
+            JSONArray jsonArray = (JSONArray) obj;
+            results.addAll(getCommonParents(tail, jsonArray));
+        } else {
+            JSONObject subJsonObject = (JSONObject) obj;
+            results.addAll(getCommonParents(tail, subJsonObject));
+        }
+
+        return results;
+    }
+
+    public static List<Object> getCommonParents(String commonHeading, JSONArray jsonArray) {
+        List<Object> results = new ArrayList<>();
+
+        // base case 1: no commonHeading availabe
+        // base case 2: commonHeading does not contain dot
+        if (StringUtils.isBlank(commonHeading) || !commonHeading.contains(".")) {
+            // in both cases, every element of the current JSONArray is a common parent
+            for (int i = 0; i < jsonArray.size(); ++i) {
+                results.add(jsonArray.get(i));
+            }
+
+            return results;
+        }
+
+        // otherwise, move forward by one step
+        int splittingIndex = commonHeading.indexOf(".");
+        String head = commonHeading.substring(0, splittingIndex);
+        String tail = commonHeading.substring(splittingIndex + 1);
+
+        for (int i = 0; i < jsonArray.size(); ++i) {
+            JSONObject jsonObject = (JSONObject) jsonArray.get(i);
+            Object obj = jsonObject.get(head);
+            if (obj instanceof JSONArray) {
+                JSONArray subJsonArray = (JSONArray) obj;
+                results.addAll(getCommonParents(tail, subJsonArray));
+            } else {
+                JSONObject subJsonObject = (JSONObject) obj;
+                results.addAll(getCommonParents(tail, subJsonObject));
+            }
+        }
+
+        return results;
+    }
+
     public static List<Object> getFilteredObjectsFromSource(String targetPath, String filterPath, String filterValue, String filterAlternativeOption,
             JSONObject jsonObject) {
         List<Object> results = new ArrayList<>();
 
         // get the common heading of targetPath and filterPath
+        String commonHeading = getCommonHeading(targetPath, filterPath);
 
         // use the common heading to get a list of common parents
+        List<Object> commonParents = getCommonParents(commonHeading, jsonObject);
 
         // use the tailing part of filterPath to filter out the list of common parents
+        // at the same time, use the tailing part of targetPath to retrieve a list of targeted values
+        String filterTail = getPathTail(filterPath, commonHeading);
+        String targetTail = getPathTail(targetPath, commonHeading);
+        for (Object obj : commonParents) {
+            if (obj instanceof JSONArray) {
+                JSONArray subJsonArray = (JSONArray) obj;
+                // check existence of filterValue, and if so retrieve the targetValue
 
-        // use the tailing part of targetPath to retrieve a list of targeted values
+            } else {
+                JSONObject subJsonObject = (JSONObject) obj;
+                // check existence of filterValue, and if so retrieve the targetValue
+
+            }
+        }
 
         return results;
+    }
+
+    public static String getCommonHeading(String path1, String path2) {
+        // path1 and path2 are both dot-separated strings
+        String[] parts1 = path1.split("\\.");
+        String[] parts2 = path2.split("\\.");
+        int minLength = Math.min(parts1.length, parts2.length);
+
+        StringBuilder headingBuilder = new StringBuilder();
+        for (int i = 0; i < minLength; ++i) {
+            if (!parts1[i].equals(parts2[i])) {
+                // no more common heading
+                break;
+            }
+
+            // common heading continued
+            headingBuilder.append(parts1[i]);
+            headingBuilder.append(".");
+        }
+
+        // get rid of the last dot
+        String commongHeading = headingBuilder.toString();
+
+        return StringUtils.strip(commongHeading, ".");
+    }
+
+    private static String getPathTail(String path, String heading) {
+        String filterTail = StringUtils.removeStart(path, heading);
+
+        return StringUtils.strip(filterTail, ".");
     }
 
 }
