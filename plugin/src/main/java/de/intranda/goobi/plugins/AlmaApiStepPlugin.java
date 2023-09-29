@@ -240,6 +240,9 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
                     List<Object> filteredValues =
                             JSONUtils.getFilteredValuesFromSource(targetPath, filterKey, filterValue, filterAlternativeOption, jsonObject);
+                    if (filteredValues.isEmpty()) {
+                        log.debug("no match found");
+                    }
                     for (Object value : filteredValues) {
                         String valueString = String.valueOf(value);
                         log.debug("value = " + value);

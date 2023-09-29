@@ -44,7 +44,17 @@ public class JSONUtils {
         // base case: source is the wanted node, no futher
         if (!source.contains(".")) {
             Object value = jsonObject.get(source);
-            results.add(value);
+            if (value instanceof JSONArray) {
+                // save all values in this array
+                JSONArray jsonArray = (JSONArray) value;
+                for (int i = 0; i < jsonArray.size(); ++i) {
+                    results.add(jsonArray.get(i));
+                }
+            } else {
+                // no array, just save the value
+                results.add(value);
+            }
+
             return results;
         }
 
