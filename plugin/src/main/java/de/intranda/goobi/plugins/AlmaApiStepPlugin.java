@@ -183,6 +183,8 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         boolean successful = true;
         // your logic goes here
         for (AlmaApiCommand command : commandList) {
+            // update endpoints
+            command.updateAllEndpoints();
             // get method
             String method = command.getMethod();
 
@@ -223,7 +225,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                     for (String targetValue : targetValues) {
                         log.debug("targetValue = " + targetValue);
                     }
-                    command.updateStaticVariablesMap(targetVariable, targetValues);
+                    AlmaApiCommand.updateStaticVariablesMap(targetVariable, targetValues);
                 }
 
             }

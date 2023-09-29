@@ -55,19 +55,26 @@ public class AlmaApiCommand {
             String parameterValue = parameterConfig.getString("@value");
             parametersMap.put(parameterName, parameterValue);
         }
-        
-        if (config.containsKey("filter")) {
+
+        try {
             HierarchicalConfiguration filterConfig = config.configurationAt("filter");
             initializeFilterFields(filterConfig);
-        }
-        
-        if (config.containsKey("target")) {
             HierarchicalConfiguration targetConfig = config.configurationAt("target");
             initializeTargetFields(targetConfig);
+
+        } catch (IllegalArgumentException e) {
+            // merely used to make <filter> and <target> optional, nothing special needs to be done here
         }
 
         //        log.debug("endpoint = " + endpoint);
         log.debug("method = " + method);
+    }
+
+    public void updateAllEndpoints() {
+        // we only have to replace static variables here one by one
+        for (String endpoint : endpoints) {
+            replaceAllStaticVariablesInEndpoints(endpoint);
+        }
     }
 
     private void initializeEndpoints(String rawEndpoint, HierarchicalConfiguration config) {
@@ -76,12 +83,38 @@ public class AlmaApiCommand {
         endpoints = new ArrayList<>();
         endpoints.add(rawEndpointReplaced);
 
+        boolean staticVariablesReplaced = replaceAllStaticVariablesInEndpoints(rawEndpointReplaced);
+        if (!staticVariablesReplaced) {
+            // TODO: report error
+        }
+
         // static variables may be multiple, but configurable variables will appear only once
         // get the list of all static variables that will be used
-        Set<String> staticVariablesNeeded = getStaticVariablesNeeded(rawEndpointReplaced);
+        //        Set<String> staticVariablesNeeded = getStaticVariablesNeeded(rawEndpointReplaced);
+        //        if (staticVariablesNeeded == null) {
+        //            // TODO: report error
+        //            return;
+        //        }
+        //
+        //        for (String staticVariable : staticVariablesNeeded) {
+        //            // staticVariable is key in the STATIC_VARIABLES_MAP, and it also appears as context in the endpoint
+        //            // hence just replace them with values from the STATIC_VARIABLES_MAP
+        //            endpoints = replaceStaticVariableInEndpoints(endpoints, staticVariable);
+        //        }
+        
+        // TODO: check existence of other variables, and if so, report error
+
+        // replace all configurable variables in all endpoints
+        //        endpoints = replaceAllCustomVariablesInEndpoints(endpoints, config);
+    }
+
+    private boolean replaceAllStaticVariablesInEndpoints(String rawEndpoint) {
+        // static variables may be multiple, but configurable variables will appear only once
+        // get the list of all static variables that will be used
+        Set<String> staticVariablesNeeded = getStaticVariablesNeeded(rawEndpoint);
         if (staticVariablesNeeded == null) {
             // TODO: report error
-            return;
+            return false;
         }
 
         for (String staticVariable : staticVariablesNeeded) {
@@ -89,11 +122,8 @@ public class AlmaApiCommand {
             // hence just replace them with values from the STATIC_VARIABLES_MAP
             endpoints = replaceStaticVariableInEndpoints(endpoints, staticVariable);
         }
-        
-        // TODO: check existence of other variables, and if so, report error
 
-        // replace all configurable variables in all endpoints
-        //        endpoints = replaceAllCustomVariablesInEndpoints(endpoints, config);
+        return true;
     }
 
     private Set<String> getStaticVariablesNeeded(String line) {
@@ -196,6 +226,7 @@ public class AlmaApiCommand {
 
     public static void updateStaticVariablesMap(String variable, List<String> values) {
         String wrappedKey = wrapKey(variable);
+        log.debug("updating variable: " + wrappedKey);
 
         if (STATIC_VARIABLES_MAP.containsKey(wrappedKey)) {
             // report error
