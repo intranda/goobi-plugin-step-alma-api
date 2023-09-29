@@ -10,6 +10,9 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
+import lombok.extern.log4j.Log4j2;
+
+@Log4j2
 public class JSONUtils {
     private static final JSONParser JSON_PARSER = new JSONParser();
 
@@ -41,6 +44,12 @@ public class JSONUtils {
 
     public static List<Object> getValuesFromSource(String source, JSONObject jsonObject) {
         List<Object> results = new ArrayList<>();
+        // base case: no source specified
+        if (StringUtils.isBlank(source)) {
+            results.add(jsonObject);
+            return results;
+        }
+
         // base case: source is the wanted node, no futher
         if (!source.contains(".")) {
             Object value = jsonObject.get(source);
@@ -79,8 +88,9 @@ public class JSONUtils {
 
     public static List<Object> getValuesFromSource(String source, JSONArray jsonArray) {
         List<Object> results = new ArrayList<>();
+        // base case: no source specified
         // base case: source is the wanted node, no further
-        if (!source.contains(".")) {
+        if (StringUtils.isBlank(source) || !source.contains(".")) {
             // add all plain values
             for (int i = 0; i < jsonArray.size(); ++i) {
                 JSONObject jsonObject = (JSONObject) jsonArray.get(i);
@@ -257,6 +267,7 @@ public class JSONUtils {
 
     public static List<Object> getFilteredValuesFromSource(String targetPath, String filterPath, String filterValue, String filterAlternativeOption,
             JSONObject jsonObject) {
+
         List<Object> results = new ArrayList<>();
 
         // get the common heading of targetPath and filterPath
@@ -278,7 +289,7 @@ public class JSONUtils {
         }
 
         // in case of empty results, check filterAlternativeOption
-        if (results.isEmpty()) {
+        if (results.isEmpty() && !StringUtils.isBlank(filterAlternativeOption)) {
             switch (StringUtils.lowerCase(filterAlternativeOption)) {
                 case "all":
                     return getValuesFromSourceGeneral(targetTail, commonParents);
@@ -297,6 +308,10 @@ public class JSONUtils {
     }
 
     public static String getCommonHeading(String path1, String path2) {
+        if (StringUtils.isAnyBlank(path1, path2)) {
+            return "";
+        }
+
         // path1 and path2 are both dot-separated strings
         String[] parts1 = path1.split("\\.");
         String[] parts2 = path2.split("\\.");
@@ -321,12 +336,24 @@ public class JSONUtils {
     }
 
     private static String getPathTail(String path, String heading) {
+        log.debug("getting path tail from: '" + path + "' where heading = " + heading);
+
+        if (StringUtils.isBlank(heading)) {
+            log.debug("heading is blank, returning path...");
+            return path;
+        }
+
         String filterTail = StringUtils.removeStart(path, heading);
 
         return StringUtils.strip(filterTail, ".");
     }
 
     private static boolean isJsonValueAMatch(String path, String value, Object obj) {
+        // a blank path or value matches everything
+        if (StringUtils.isAnyBlank(path, value)) {
+            return true;
+        }
+
         // get a list of values from the path
         List<Object> values = getValuesFromSourceGeneral(path, obj);
         for (Object v : values) {

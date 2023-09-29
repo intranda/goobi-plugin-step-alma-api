@@ -10,6 +10,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.configuration.HierarchicalConfiguration;
+import org.apache.commons.lang3.StringUtils;
 
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
@@ -59,11 +60,17 @@ public class AlmaApiCommand {
         try {
             HierarchicalConfiguration filterConfig = config.configurationAt("filter");
             initializeFilterFields(filterConfig);
+
+        } catch (IllegalArgumentException e) {
+            // merely used to make <filter> optional, nothing special needs to be done here
+        }
+
+        try {
             HierarchicalConfiguration targetConfig = config.configurationAt("target");
             initializeTargetFields(targetConfig);
 
         } catch (IllegalArgumentException e) {
-            // merely used to make <filter> and <target> optional, nothing special needs to be done here
+            // merely used to make <target> optional, nothing special needs to be done here
         }
 
         //        log.debug("endpoint = " + endpoint);
@@ -167,9 +174,9 @@ public class AlmaApiCommand {
     }
 
     private void initializeFilterFields(HierarchicalConfiguration config) {
-        filterKey = config.getString("@key");
-        filterValue = config.getString("@value");
-        filterAlternativeOption = config.getString("@alt"); // all | none | first | last | random
+        filterKey = config.getString("@key", "");
+        filterValue = config.getString("@value", "");
+        filterAlternativeOption = config.getString("@alt", ""); // all | none | first | last | random
         // TODO: check option
     }
 
@@ -225,6 +232,11 @@ public class AlmaApiCommand {
     }
 
     public static boolean updateStaticVariablesMap(String variable, List<String> values) {
+        if (StringUtils.isBlank(variable)) {
+            // no variable defined, hence no need to update
+            return true;
+        }
+
         String wrappedKey = wrapKey(variable);
         log.debug("updating variable: " + wrappedKey);
 

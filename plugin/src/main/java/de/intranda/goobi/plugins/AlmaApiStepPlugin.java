@@ -28,7 +28,6 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.configuration.SubnodeConfiguration;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
@@ -190,6 +189,16 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
             Map<String, String> parameters = command.getParametersMap();
             List<String> endpoints = command.getEndpoints();
+
+            String targetPath = command.getTargetPath();
+            String targetVariable = command.getTargetVariable();
+            log.debug("targetPath = " + targetPath);
+            log.debug("targetVariable = " + targetVariable);
+
+            String filterKey = command.getFilterKey();
+            String filterValue = command.getFilterValue();
+            String filterAlternativeOption = command.getFilterAlternativeOption();
+
             for (String endpoint : endpoints) {
                 String requestUrl = createRequestUrl(endpoint, parameters);
                 log.debug("requestUrl = " + requestUrl);
@@ -200,36 +209,21 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                 log.debug(jsonObject.toString());
                 log.debug("------- jsonObject -------");
 
-                String targetPath = command.getTargetPath();
-                String targetVariable = command.getTargetVariable();
-                
-                String filterKey = command.getFilterKey();
-                if (StringUtils.isNotBlank(filterKey)) {
-                    String filterValue = command.getFilterValue();
-                    String filterAlternativeOption = command.getFilterAlternativeOption();
+                List<Object> filteredValues =
+                        JSONUtils.getFilteredValuesFromSource(targetPath, filterKey, filterValue, filterAlternativeOption, jsonObject);
+                if (filteredValues.isEmpty()) {
+                    log.debug("no match found");
+                }
 
-                    List<Object> filteredValues =
-                            JSONUtils.getFilteredValuesFromSource(targetPath, filterKey, filterValue, filterAlternativeOption, jsonObject);
-                    if (filteredValues.isEmpty()) {
-                        log.debug("no match found");
-                    }
-                    for (Object value : filteredValues) {
-                        String valueString = String.valueOf(value);
-                        log.debug("value = " + valueString);
-                    }
+                // save the filteredValues
+                List<String> targetValues = filteredValues.stream()
+                        .map(obj -> String.valueOf(obj))
+                        .collect(Collectors.toList());
 
-                    // save the filteredValues
-                    List<String> targetValues = filteredValues.stream()
-                            .map(obj -> String.valueOf(obj))
-                            .collect(Collectors.toList());
-                    for (String targetValue : targetValues) {
-                        log.debug("targetValue = " + targetValue);
-                    }
-                    boolean staticVariablesUpdated = AlmaApiCommand.updateStaticVariablesMap(targetVariable, targetValues);
-                    if (!staticVariablesUpdated) {
-                        log.debug("static variables map was not successfully updated");
-                        // report error
-                    }
+                boolean staticVariablesUpdated = AlmaApiCommand.updateStaticVariablesMap(targetVariable, targetValues);
+                if (!staticVariablesUpdated) {
+                    log.debug("static variables map was not successfully updated");
+                    // report error
                 }
 
             }
