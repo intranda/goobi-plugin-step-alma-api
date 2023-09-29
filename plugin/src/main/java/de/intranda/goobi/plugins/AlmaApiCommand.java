@@ -56,11 +56,15 @@ public class AlmaApiCommand {
             parametersMap.put(parameterName, parameterValue);
         }
         
-        HierarchicalConfiguration filterConfig = config.configurationAt("filter");
-        initializeFilterFields(filterConfig);
+        if (config.containsKey("filter")) {
+            HierarchicalConfiguration filterConfig = config.configurationAt("filter");
+            initializeFilterFields(filterConfig);
+        }
         
-        HierarchicalConfiguration targetConfig = config.configurationAt("target");
-        initializeTargetFields(targetConfig);
+        if (config.containsKey("target")) {
+            HierarchicalConfiguration targetConfig = config.configurationAt("target");
+            initializeTargetFields(targetConfig);
+        }
 
         //        log.debug("endpoint = " + endpoint);
         log.debug("method = " + method);
@@ -190,15 +194,17 @@ public class AlmaApiCommand {
         return variablesMap;
     }
 
-    public static void updateStaticVariablesMap(String key, List<String> values) {
-        if (STATIC_VARIABLES_MAP.containsKey(key)) {
+    public static void updateStaticVariablesMap(String variable, List<String> values) {
+        String wrappedKey = wrapKey(variable);
+
+        if (STATIC_VARIABLES_MAP.containsKey(wrappedKey)) {
             // report error
+            log.debug("The variable '" + variable + "' already exists. Aborting...");
             return;
         }
 
-        String wrappedKey = wrapKey(key);
-
         STATIC_VARIABLES_MAP.put(wrappedKey, values);
+        log.debug("Static variables map updated: " + wrappedKey + " -> " + values.toString());
     }
 
     private static String wrapKey(String key) {

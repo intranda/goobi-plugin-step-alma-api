@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.configuration.SubnodeConfiguration;
@@ -45,7 +46,6 @@ import org.goobi.production.enums.PluginReturnValue;
 import org.goobi.production.enums.PluginType;
 import org.goobi.production.enums.StepReturnValue;
 import org.goobi.production.plugin.interfaces.IStepPluginVersion2;
-import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.ParseException;
 
@@ -196,47 +196,15 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                 JSONObject jsonObject = runCommand(method, requestUrl);
                 log.debug("------- jsonObject -------");
                 log.debug(jsonObject.toString());
+                log.debug("------- jsonObject -------");
 
                 String targetPath = command.getTargetPath();
+                String targetVariable = command.getTargetVariable();
                 
                 String filterKey = command.getFilterKey();
                 if (StringUtils.isNotBlank(filterKey)) {
                     String filterValue = command.getFilterValue();
                     String filterAlternativeOption = command.getFilterAlternativeOption();
-
-                    List<Object> objects = JSONUtils.getValuesFromSource(filterKey, jsonObject);
-                    for (Object object : objects) {
-                        String objectValue = String.valueOf(object);
-                        log.debug("objectValue = " + objectValue);
-                        if (object instanceof JSONArray) {
-                            log.debug("object is JSONArray");
-                        } else if (object instanceof JSONObject) {
-                            log.debug("object is JSONObject");
-                        } else {
-                            log.debug("object is just some normal value");
-                        }
-                    }
-                    
-                    List<Object> commonParents = JSONUtils.getCommonParents(targetPath, filterKey, jsonObject);
-                    for (Object parentObject : commonParents) {
-                        String parentValue = String.valueOf(parentObject);
-                        log.debug("parentValue = " + parentValue);
-                        if (parentObject instanceof JSONArray) {
-                            log.debug("parentObject is JSONArray");
-                        } else if (parentObject instanceof JSONObject) {
-                            log.debug("parentObject is JSONObject");
-                        } else {
-                            log.debug("parentObject is just some normal value");
-                        }
-                    }
-                    
-                    String commonHeading = JSONUtils.getCommonHeading(targetPath, filterKey);
-                    log.debug("commonHeading = " + commonHeading);
-                    List<Object> parents = JSONUtils.getCommonParents(commonHeading, jsonObject);
-                    for (Object parent : parents) {
-                        String parentValue = String.valueOf(parent);
-                        log.debug("parentValue = " + parentValue);
-                    }
 
                     List<Object> filteredValues =
                             JSONUtils.getFilteredValuesFromSource(targetPath, filterKey, filterValue, filterAlternativeOption, jsonObject);
@@ -245,21 +213,20 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                     }
                     for (Object value : filteredValues) {
                         String valueString = String.valueOf(value);
-                        log.debug("value = " + value);
+                        log.debug("value = " + valueString);
                     }
 
+                    // save the filteredValues
+                    List<String> targetValues = filteredValues.stream()
+                            .map(obj -> String.valueOf(obj))
+                            .collect(Collectors.toList());
+                    for (String targetValue : targetValues) {
+                        log.debug("targetValue = " + targetValue);
+                    }
+                    command.updateStaticVariablesMap(targetVariable, targetValues);
                 }
 
             }
-            
-            // get the full request url
-            //            String endpoint = command.getEndpoint();
-            //            Map<String, String> parameters = command.getParametersMap();
-            //            String requestUrl = createRequestUrl(endpoint, parameters);
-            //            log.debug("requestUrl = " + requestUrl);
-            //            
-            //            // run the command
-            //            runCommand(method, requestUrl);
 
         }
 
