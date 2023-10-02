@@ -41,6 +41,7 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.goobi.beans.Process;
 import org.goobi.beans.Step;
+import org.goobi.production.enums.LogType;
 import org.goobi.production.enums.PluginGuiType;
 import org.goobi.production.enums.PluginReturnValue;
 import org.goobi.production.enums.PluginType;
@@ -50,6 +51,7 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.ParseException;
 
 import de.sub.goobi.config.ConfigPlugins;
+import de.sub.goobi.helper.Helper;
 import de.sub.goobi.helper.exceptions.SwapException;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
@@ -70,6 +72,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
     @Getter
     private Step step;
     private Process process;
+    private int processId;
     @Getter
     private String value;
     @Getter
@@ -102,6 +105,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         this.returnPath = returnPath;
         this.step = step;
         this.process = step.getProzess();
+        this.processId = process.getId();
 
         // read parameters from correct block in configuration file
         SubnodeConfiguration config = ConfigPlugins.getProjectAndStepConfig(title, step);
@@ -156,21 +160,32 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             String variableName = variableConfig.getString("@name");
             String variableValue = getVariableValue(variableConfig);
 
-            AlmaApiCommand.updateStaticVariablesMap(variableName, variableValue);
-            log.debug("variable added: " + variableName + " -> " + variableValue);
+            boolean staticVariablesUpdated = AlmaApiCommand.updateStaticVariablesMap(variableName, variableValue);
+            if (staticVariablesUpdated) {
+                log.info("Static variable added: " + variableName + " -> " + variableValue);
+            } else {
+                log.error("Failed to add variable: " + variableName);
+            }
+
         }
     }
 
     private String getVariableValue(HierarchicalConfiguration variableConfig) {
+        // use @value if it is configured
         if (variableConfig.containsKey("@value")) {
             return variableConfig.getString("@value");
         }
 
-        // TODO: handle errors resulted from missing attributes
-        String mdType = variableConfig.getString("@metadata");
-        // get value from metadata
+        // otherwise, get value from metadata
+        if (variableConfig.containsKey("@metadata")) {
+            String mdType = variableConfig.getString("@metadata");
+            return getVariableValueFromMetadata(mdType);
+        }
 
-        return getVariableValueFromMetadata(mdType);
+        // otherwise, report error
+        String message = "To define a <variable> tag, one has to specify one of its two attributes: either @value or @metadata.";
+        logBoth(processId, LogType.WARN, message);
+        return "";
     }
 
     private String getVariableValueFromMetadata(String mdType) {
@@ -180,15 +195,17 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             Fileformat fileformat = process.readMetadataFile();
             DigitalDocument dd = fileformat.getDigitalDocument();
             DocStruct logical = dd.getLogicalDocStruct();
-            //            String physicalLocation = findExistingMetadata(logical, "PhysicalLocation");
-            //            log.debug("physicalLocation = " + physicalLocation);
+
             return findExistingMetadata(logical, mdType);
 
         } catch (ReadException | IOException | SwapException e) {
-            // TODO Auto-generated catch block
+            String message = "Failed to read the metadata file.";
+            logBoth(processId, LogType.ERROR, message);
             e.printStackTrace();
+
         } catch (PreferencesException e) {
-            // TODO Auto-generated catch block
+            String message = "PreferencesException caught while trying to get the digital document.";
+            logBoth(processId, LogType.ERROR, message);
             e.printStackTrace();
         }
 
@@ -259,6 +276,15 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         boolean successful = true;
         // your logic goes here
         for (AlmaApiCommand command : commandList) {
+            successful = successful && prepareAndRunCommand(command);
+        }
+
+        log.info("AlmaApi step plugin executed");
+        return successful ? PluginReturnValue.FINISH : PluginReturnValue.ERROR;
+    }
+
+    private boolean prepareAndRunCommand(AlmaApiCommand command) {
+        try {
             // update endpoints
             command.updateAllEndpoints();
             // get method
@@ -269,8 +295,6 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
             String targetPath = command.getTargetPath();
             String targetVariable = command.getTargetVariable();
-            log.debug("targetPath = " + targetPath);
-            log.debug("targetVariable = " + targetVariable);
 
             String filterKey = command.getFilterKey();
             String filterValue = command.getFilterValue();
@@ -282,33 +306,40 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
                 // run the command
                 JSONObject jsonObject = runCommand(method, requestUrl);
-                log.debug("------- jsonObject -------");
-                log.debug(jsonObject.toString());
-                log.debug("------- jsonObject -------");
 
-                List<Object> filteredValues =
-                        JSONUtils.getFilteredValuesFromSource(targetPath, filterKey, filterValue, filterAlternativeOption, jsonObject);
-                if (filteredValues.isEmpty()) {
-                    log.debug("no match found");
-                }
+                if (jsonObject != null) {
+                    log.debug("------- jsonObject -------");
+                    log.debug(jsonObject.toString());
+                    log.debug("------- jsonObject -------");
 
-                // save the filteredValues
-                List<String> targetValues = filteredValues.stream()
-                        .map(obj -> String.valueOf(obj))
-                        .collect(Collectors.toList());
+                    List<Object> filteredValues =
+                            JSONUtils.getFilteredValuesFromSource(targetPath, filterKey, filterValue, filterAlternativeOption, jsonObject);
+                    if (filteredValues.isEmpty()) {
+                        log.debug("no match found");
+                    }
 
-                boolean staticVariablesUpdated = AlmaApiCommand.updateStaticVariablesMap(targetVariable, targetValues);
-                if (!staticVariablesUpdated) {
-                    log.debug("static variables map was not successfully updated");
-                    // report error
+                    // save the filteredValues
+                    List<String> targetValues = filteredValues.stream()
+                            .map(String::valueOf)
+                            .collect(Collectors.toList());
+
+                    boolean staticVariablesUpdated = AlmaApiCommand.updateStaticVariablesMap(targetVariable, targetValues);
+                    if (!staticVariablesUpdated) {
+                        log.debug("static variables map was not successfully updated");
+                    }
                 }
 
             }
+            return true;
 
+        } catch (Exception e) {
+            // any kind of exception should stop further steps, e.g. NullPointerException
+            String message = "Exception caught while running commands: " + e.toString();
+            logBoth(processId, LogType.ERROR, message);
+            e.printStackTrace();
+            return false;
         }
 
-        log.info("AlmaApi step plugin executed");
-        return successful ? PluginReturnValue.FINISH : PluginReturnValue.ERROR;
     }
 
     private String createRequestUrl(String endpoint, Map<String, String> parameters) {
@@ -358,17 +389,18 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             log.info("Executing request " + httpGet.getRequestLine());
 
             String responseBody = client.execute(httpGet, RESPONSE_HANDLER);
-            log.debug(responseBody);
 
             return JSONUtils.getJSONObjectFromString(responseBody);
 
         } catch (IOException e) {
-            // TODO Auto-generated catch block
+            String message = "IOException caught while executing request: " + httpGet.getRequestLine();
+            logBoth(processId, LogType.ERROR, message);
             e.printStackTrace();
             return null;
 
         } catch (ParseException e) {
-            // TODO Auto-generated catch block
+            String message = "ParseException caught while executing request: " + httpGet.getRequestLine();
+            logBoth(processId, LogType.ERROR, message);
             e.printStackTrace();
             return null;
         }
@@ -385,6 +417,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                 break;
             case "patch":
                 httpBase = new HttpPatch(url);
+                break;
             default: // unknown
                 return null;
         }
@@ -397,18 +430,47 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             log.info("Executing request " + httpBase.getRequestLine());
 
             String responseBody = client.execute(httpBase, RESPONSE_HANDLER);
-            log.debug(responseBody);
             return JSONUtils.getJSONObjectFromString(responseBody);
 
         } catch (IOException e) {
-            // TODO Auto-generated catch block
+            String message = "IOException caught while executing request: " + httpBase.getRequestLine();
+            logBoth(processId, LogType.ERROR, message);
             e.printStackTrace();
             return null;
 
         } catch (ParseException e) {
-            // TODO Auto-generated catch block
+            String message = "ParseException caught while executing request: " + httpBase.getRequestLine();
+            logBoth(processId, LogType.ERROR, message);
             e.printStackTrace();
             return null;
+        }
+    }
+
+    /**
+     * print logs to terminal and journal
+     * 
+     * @param processId id of the Goobi process
+     * @param logType type of the log
+     * @param message message to be shown to both terminal and journal
+     */
+    private void logBoth(int processId, LogType logType, String message) {
+        String logMessage = "FetchImagesFromMetadata Step Plugin: " + message;
+        switch (logType) {
+            case ERROR:
+                log.error(logMessage);
+                break;
+            case DEBUG:
+                log.debug(logMessage);
+                break;
+            case WARN:
+                log.warn(logMessage);
+                break;
+            default: // INFO
+                log.info(logMessage);
+                break;
+        }
+        if (processId > 0) {
+            Helper.addMessageToProcessJournal(processId, logType, logMessage);
         }
     }
 
