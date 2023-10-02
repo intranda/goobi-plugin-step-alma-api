@@ -39,6 +39,7 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+import org.goobi.beans.Process;
 import org.goobi.beans.Step;
 import org.goobi.production.enums.PluginGuiType;
 import org.goobi.production.enums.PluginReturnValue;
@@ -61,6 +62,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
     private String title = "intranda_step_alma_api";
     @Getter
     private Step step;
+    private Process process;
     @Getter
     private String value;
     @Getter
@@ -92,6 +94,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
     public void initialize(Step step, String returnPath) {
         this.returnPath = returnPath;
         this.step = step;
+        this.process = step.getProzess();
 
         // read parameters from correct block in configuration file
         SubnodeConfiguration config = ConfigPlugins.getProjectAndStepConfig(title, step);
@@ -104,6 +107,11 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
         url = config.getString("url", "");
         apiKey = config.getString("api-key", "");
+
+        // initialize the static variable map in AlmaApiCommand, which will be needed to create new AlmaApiCommand instances
+        List<HierarchicalConfiguration> variableConfigs = config.configurationsAt("variable");
+        initializeVariablesMap(variableConfigs);
+
         List<HierarchicalConfiguration> commandConfigs = config.configurationsAt("command");
         for (HierarchicalConfiguration commandConfig : commandConfigs) {
             commandList.add(new AlmaApiCommand(commandConfig));
@@ -134,6 +142,32 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         AlmaApiCommand.updateStaticVariablesMap(var1, var1Values);
         AlmaApiCommand.updateStaticVariablesMap(var2, var2Values);
         AlmaApiCommand.updateStaticVariablesMap(var3, var3Values);
+    }
+
+    private void initializeVariablesMap(List<HierarchicalConfiguration> variableConfigs) {
+        for (HierarchicalConfiguration variableConfig : variableConfigs) {
+            String variableName = variableConfig.getString("@name");
+            String variableValue = getVariableValue(variableConfig);
+
+            AlmaApiCommand.updateStaticVariablesMap(variableName, variableValue);
+            log.debug("variable added: " + variableName + " -> " + variableValue);
+        }
+    }
+
+    private String getVariableValue(HierarchicalConfiguration variableConfig) {
+        if (variableConfig.containsKey("@value")) {
+            return variableConfig.getString("@value");
+        }
+
+        String mdType = variableConfig.getString("@metadata");
+        // get value from metadata
+
+        return getVariableValueFromMetadata(mdType);
+    }
+
+    private String getVariableValueFromMetadata(String mdType) {
+        log.debug("Getting variable value from metadata of type: " + mdType);
+        return "";
     }
 
     @Override

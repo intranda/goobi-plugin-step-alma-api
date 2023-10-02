@@ -1,6 +1,7 @@
 package de.intranda.goobi.plugins;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -176,6 +177,20 @@ public class AlmaApiCommand {
     private void initializeFilterFields(HierarchicalConfiguration config) {
         filterKey = config.getString("@key", "");
         filterValue = config.getString("@value", "");
+        if (filterValue.contains("$")) {
+            // configured filterValue is a variable
+            String wrappedKey = wrapKey(filterValue);
+            if (!STATIC_VARIABLES_MAP.containsKey(wrappedKey)) {
+                // variable not found, report error
+                log.debug("unknown variable: " + filterValue);
+                return;
+            }
+
+            // retrieve value from the variables map
+            filterValue = STATIC_VARIABLES_MAP.get(wrappedKey).get(0);
+            log.debug("filterValue after replacing static variable = " + filterValue);
+        }
+
         filterAlternativeOption = config.getString("@alt", ""); // all | none | first | last | random
         // TODO: check option
     }
@@ -229,6 +244,16 @@ public class AlmaApiCommand {
         }
 
         return variablesMap;
+    }
+
+    public static boolean updateStaticVariablesMap(String variable, String value) {
+        if (StringUtils.isBlank(value)) {
+            log.debug("The variable's value should not be blank.");
+            return false;
+        }
+
+        List<String> values = Arrays.asList(new String[] { value });
+        return updateStaticVariablesMap(variable, values);
     }
 
     public static boolean updateStaticVariablesMap(String variable, List<String> values) {
