@@ -1,7 +1,9 @@
 package de.intranda.goobi.plugins;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 import org.apache.commons.lang3.StringUtils;
@@ -307,6 +309,68 @@ public class JSONUtils {
         return results;
     }
 
+    public static Map<String, List<Object>> getFilteredValuesFromSource(Map<String, String> targets, String filterPath, String filterValue,
+            String filterAlternativeOption, JSONObject jsonObject) {
+
+        log.debug("======= getting filtered values from a map =======");
+        Map<String, List<Object>> results = new HashMap<>();
+        List<String> targetPaths = new ArrayList<>(targets.values());
+
+        // get the common heading of targetPath and filterPath
+        String commonHeadingTarget = getCommonHeading(targetPaths);
+        String commonHeading = getCommonHeading(commonHeadingTarget, filterPath);
+
+        // use the common heading to get a list of common parents
+        List<Object> commonParents = getCommonParents(commonHeading, jsonObject);
+
+        // use the tailing part of filterPath to filter out the list of common parents
+        String filterTail = getPathTail(filterPath, commonHeading);
+
+        for (Object obj : commonParents) {
+            // check existence of filterValue, and if so retrieve the targetValue
+            boolean filterValueMatches = isJsonValueAMatch(filterTail, filterValue, obj);
+            if (filterValueMatches) {
+                // use the tailing part of every targetPath to retrieve a list of targeted values
+                for (Map.Entry<String, String> target : targets.entrySet()) {
+                    String targetVariable = target.getKey();
+                    String targetPath = target.getValue();
+                    String targetTail = getPathTail(targetPath, commonHeading);
+                    List<Object> targetResults = getValuesFromSourceGeneral(targetTail, obj);
+                    results.put(targetVariable, targetResults);
+                    log.debug("targetVariable = " + targetVariable);
+                    log.debug("targetTail = " + targetTail);
+                }
+            }
+        }
+        
+        for (Map.Entry<String, String> target : targets.entrySet()) {
+            String variable = target.getKey();
+            // in case of empty sub-results, check filterAlternativeOption
+            if (!results.containsKey(variable) && !StringUtils.isBlank(filterAlternativeOption)) {
+                String pathTail = getPathTail(target.getValue(), commonHeading);
+                switch (StringUtils.lowerCase(filterAlternativeOption)) {
+                    case "all":
+                        results.put(variable, getValuesFromSourceGeneral(pathTail, commonParents));
+                        break;
+                    case "first":
+                        results.put(variable, getValuesFromSourceGeneral(pathTail, commonParents.get(0)));
+                        break;
+                    case "last":
+                        results.put(variable, getValuesFromSourceGeneral(pathTail, commonParents.get(commonParents.size() - 1)));
+                        break;
+                    case "random":
+                        results.put(variable, getValuesFromSourceGeneral(pathTail, commonParents.get(new Random().nextInt(commonParents.size()))));
+                        break;
+                    default:
+                        // otherwise create an empty list as value
+                        results.put(variable, new ArrayList<>());
+                }
+            }
+        }
+
+        return results;
+    }
+
     public static String getCommonHeading(String path1, String path2) {
         if (StringUtils.isAnyBlank(path1, path2)) {
             return "";
@@ -335,6 +399,23 @@ public class JSONUtils {
         return StringUtils.strip(commongHeading, ".");
     }
 
+    public static String getCommonHeading(List<String> paths) {
+        if (paths == null || paths.isEmpty()) {
+            return "";
+        }
+
+        if (paths.size() < 2) {
+            return paths.get(0);
+        }
+
+        String commonHeading = paths.get(0);
+        for (int i = 1; i < paths.size(); ++i) {
+            commonHeading = getCommonHeading(commonHeading, paths.get(i));
+        }
+
+        return commonHeading;
+    }
+
     private static String getPathTail(String path, String heading) {
         log.debug("getting path tail from: '" + path + "' where heading = " + heading);
 
@@ -346,6 +427,15 @@ public class JSONUtils {
         String filterTail = StringUtils.removeStart(path, heading);
 
         return StringUtils.strip(filterTail, ".");
+    }
+
+    private static List<String> getPathTails(List<String> paths, String heading) {
+        List<String> tails = new ArrayList<>(paths.size());
+        for (String path : paths) {
+            tails.add(getPathTail(path, heading));
+        }
+
+        return tails;
     }
 
     private static boolean isJsonValueAMatch(String path, String value, Object obj) {

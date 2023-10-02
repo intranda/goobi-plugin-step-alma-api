@@ -38,10 +38,12 @@ public class AlmaApiCommand {
     private String filterValue;
     @Getter
     private String filterAlternativeOption;
+    //    @Getter
+    //    private String targetVariable;
+    //    @Getter
+    //    private String targetPath;
     @Getter
-    private String targetVariable;
-    @Getter
-    private String targetPath;
+    private Map<String, String> targetVariablePathMap;
 
     //    private List<String> staticVariablesNeeded = new ArrayList<>(); // variables that shall be used to complete the endpoint, formulated as {$VARIALBE_NAME}
 
@@ -67,8 +69,11 @@ public class AlmaApiCommand {
         }
 
         try {
-            HierarchicalConfiguration targetConfig = config.configurationAt("target");
-            initializeTargetFields(targetConfig);
+            //            HierarchicalConfiguration targetConfig = config.configurationAt("target");
+            //            initializeTargetFields(targetConfig);
+
+            List<HierarchicalConfiguration> targetConfigs = config.configurationsAt("target");
+            initializeTargetFields(targetConfigs);
 
         } catch (IllegalArgumentException e) {
             // merely used to make <target> optional, nothing special needs to be done here
@@ -195,9 +200,18 @@ public class AlmaApiCommand {
         // TODO: check option
     }
 
-    private void initializeTargetFields(HierarchicalConfiguration config) {
-        targetVariable = config.getString("@var");
-        targetPath = config.getString("@path");
+    //    private void initializeTargetFields(HierarchicalConfiguration config) {
+    //        targetVariable = config.getString("@var");
+    //        targetPath = config.getString("@path");
+    //    }
+
+    private void initializeTargetFields(List<HierarchicalConfiguration> configs) {
+        targetVariablePathMap = new HashMap<>();
+        for (HierarchicalConfiguration config : configs) {
+            String variable = config.getString("@var");
+            String path = config.getString("@path");
+            targetVariablePathMap.put(variable, path);
+        }
     }
 
     private List<String> replaceAllCustomVariablesInEndpoints(List<String> rawEndpoints, HierarchicalConfiguration config) {
@@ -262,19 +276,17 @@ public class AlmaApiCommand {
             return true;
         }
 
-        String wrappedKey = wrapKey(variable);
-        log.debug("updating variable: " + wrappedKey);
-
-        if (STATIC_VARIABLES_MAP.containsKey(wrappedKey)) {
-            // report error
-            log.debug("The variable '" + variable + "' already exists. Aborting...");
-            return false;
-        }
-
         if (values == null || values.isEmpty()) {
             // report error
             log.debug("The value of the new variable '" + variable + "' should not be empty or null.");
             return false;
+        }
+
+        String wrappedKey = wrapKey(variable);
+        log.debug("updating variable: " + wrappedKey);
+
+        if (STATIC_VARIABLES_MAP.containsKey(wrappedKey)) {
+            log.debug("The variable '" + variable + "' already exists. Updating...");
         }
 
         STATIC_VARIABLES_MAP.put(wrappedKey, values);
