@@ -50,9 +50,16 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.ParseException;
 
 import de.sub.goobi.config.ConfigPlugins;
+import de.sub.goobi.helper.exceptions.SwapException;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import net.xeoh.plugins.base.annotations.PluginImplementation;
+import ugh.dl.DigitalDocument;
+import ugh.dl.DocStruct;
+import ugh.dl.Fileformat;
+import ugh.dl.Metadata;
+import ugh.exceptions.PreferencesException;
+import ugh.exceptions.ReadException;
 
 @PluginImplementation
 @Log4j2
@@ -159,6 +166,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             return variableConfig.getString("@value");
         }
 
+        // TODO: handle errors resulted from missing attributes
         String mdType = variableConfig.getString("@metadata");
         // get value from metadata
 
@@ -167,7 +175,42 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
     private String getVariableValueFromMetadata(String mdType) {
         log.debug("Getting variable value from metadata of type: " + mdType);
+
+        try {
+            Fileformat fileformat = process.readMetadataFile();
+            DigitalDocument dd = fileformat.getDigitalDocument();
+            DocStruct logical = dd.getLogicalDocStruct();
+            //            String physicalLocation = findExistingMetadata(logical, "PhysicalLocation");
+            //            log.debug("physicalLocation = " + physicalLocation);
+            return findExistingMetadata(logical, mdType);
+
+        } catch (ReadException | IOException | SwapException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (PreferencesException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
         return "";
+    }
+
+    /**
+     * get the value of an existing Metadata
+     * 
+     * @param ds DocStruct whose Metadata should be searched
+     * @param elementType name of MetadataType
+     * @return value of the Metadata if successfully found, null otherwise
+     */
+    private String findExistingMetadata(DocStruct ds, String elementType) {
+        if (ds.getAllMetadata() != null) {
+            for (Metadata md : ds.getAllMetadata()) {
+                if (md.getType().getName().equals(elementType)) {
+                    return md.getValue();
+                }
+            }
+        }
+        return null;
     }
 
     @Override
