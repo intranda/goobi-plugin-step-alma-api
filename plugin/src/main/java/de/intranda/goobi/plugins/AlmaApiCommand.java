@@ -282,7 +282,7 @@ public class AlmaApiCommand {
         return true;
     }
 
-    private static String wrapKey(String key) {
+    public static String wrapKey(String key) {
         //        Consumer<String> getEnding = (s) -> {return s.endsWith("}") ? "" : "}";};
 
         if (key.startsWith("{$")) {
@@ -298,6 +298,10 @@ public class AlmaApiCommand {
         }
 
         return "{$" + key + (key.endsWith("}") ? "" : "}");
+    }
+
+    public static List<String> getVariableValues(String key) {
+        return STATIC_VARIABLES_MAP.containsKey(key) ? STATIC_VARIABLES_MAP.get(key) : new ArrayList<>();
     }
 
 }

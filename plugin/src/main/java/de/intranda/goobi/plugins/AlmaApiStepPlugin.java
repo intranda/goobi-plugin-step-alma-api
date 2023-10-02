@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.stream.Collectors;
 
 import org.apache.commons.configuration.HierarchicalConfiguration;
@@ -40,6 +41,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.goobi.beans.Process;
+import org.goobi.beans.Processproperty;
 import org.goobi.beans.Step;
 import org.goobi.production.enums.LogType;
 import org.goobi.production.enums.PluginGuiType;
@@ -53,6 +55,7 @@ import org.json.simple.parser.ParseException;
 import de.sub.goobi.config.ConfigPlugins;
 import de.sub.goobi.helper.Helper;
 import de.sub.goobi.helper.exceptions.SwapException;
+import de.sub.goobi.persistence.managers.PropertyManager;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import net.xeoh.plugins.base.annotations.PluginImplementation;
@@ -82,6 +85,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
     private String url;
     private String apiKey;
     private List<AlmaApiCommand> commandList = new ArrayList<>();
+    private List<ProcessPropertyTemplate> propertyList = new ArrayList<>();
 
     // create a custom response handler
     private static final ResponseHandler<String> RESPONSE_HANDLER = response -> {
@@ -126,6 +130,15 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         List<HierarchicalConfiguration> commandConfigs = config.configurationsAt("command");
         for (HierarchicalConfiguration commandConfig : commandConfigs) {
             commandList.add(new AlmaApiCommand(commandConfig));
+        }
+
+        List<HierarchicalConfiguration> propertyConfigs = config.configurationsAt("property");
+        for (HierarchicalConfiguration propertyConfig : propertyConfigs) {
+            String propertyName = propertyConfig.getString("@name");
+            String propertyValue = propertyConfig.getString("@value");
+            String propertyIndex = propertyConfig.getString("@index", "all");
+            boolean overwrite = propertyConfig.getBoolean("@overwrite", false);
+            propertyList.add(new ProcessPropertyTemplate(propertyName, propertyValue, propertyIndex, overwrite));
         }
 
         log.info("AlmaApi step plugin initialized");
@@ -279,6 +292,10 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             successful = successful && prepareAndRunCommand(command);
         }
 
+        for (ProcessPropertyTemplate property : propertyList) {
+            successful = successful && saveProperty(property);
+        }
+
         log.info("AlmaApi step plugin executed");
         return successful ? PluginReturnValue.FINISH : PluginReturnValue.ERROR;
     }
@@ -340,6 +357,72 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             return false;
         }
 
+    }
+
+    private boolean saveProperty(ProcessPropertyTemplate propertyTemplate) {
+        try {
+            String propertyName = propertyTemplate.getName();
+            String wrappedKey = AlmaApiCommand.wrapKey(propertyTemplate.getValue());
+            List<String> propertyValues = AlmaApiCommand.getVariableValues(wrappedKey);
+
+            // determine property value according to the configured choice
+            String propertyValue = getPropertyValue(propertyValues, propertyTemplate.getChoice());
+
+            // get the Processproperty object
+            Processproperty propertyObject = getProcesspropertyObject(propertyName, propertyTemplate.isOverwrite());
+            propertyObject.setWert(propertyValue);
+            PropertyManager.saveProcessProperty(propertyObject);
+
+            return true;
+
+        } catch (Exception e) {
+            // any kind of exception should stop further steps, e.g. NullPointerException
+            String message = "Exception caught while saving process properties: " + e.toString();
+            logBoth(processId, LogType.ERROR, message);
+            e.printStackTrace();
+            return false;
+        }
+
+    }
+
+    private String getPropertyValue(List<String> propertyValues, String choice) {
+        switch (choice.toLowerCase()) {
+            case "first":
+                return propertyValues.get(0);
+            case "last":
+                return propertyValues.get(propertyValues.size() - 1);
+            case "random":
+                return propertyValues.get(new Random().nextInt(propertyValues.size()));
+            default:
+                // combine all values
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (String value : propertyValues) {
+            sb.append(value).append(", ");
+        }
+
+        String propertyValue = sb.toString();
+
+        return propertyValue.substring(0, propertyValue.lastIndexOf(", "));
+    }
+
+    private Processproperty getProcesspropertyObject(String title, boolean overwrite) {
+        if (overwrite) {
+            // try to retrieve the old object first
+            List<Processproperty> props = PropertyManager.getProcessPropertiesForProcess(processId);
+            for (Processproperty p : props) {
+                if (title.equals(p.getTitel())) {
+                    return p;
+                }
+            }
+        }
+        // otherwise, create a new one
+        Processproperty property = new Processproperty();
+        property.setTitel(title);
+        property.setProcessId(processId);
+
+        return property;
     }
 
     private String createRequestUrl(String endpoint, Map<String, String> parameters) {
@@ -454,7 +537,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * @param message message to be shown to both terminal and journal
      */
     private void logBoth(int processId, LogType logType, String message) {
-        String logMessage = "FetchImagesFromMetadata Step Plugin: " + message;
+        String logMessage = "AlmaApi Step Plugin: " + message;
         switch (logType) {
             case ERROR:
                 log.error(logMessage);
