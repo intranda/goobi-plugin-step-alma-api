@@ -286,6 +286,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             Map<String, String> targetVariablePathMap = command.getTargetVariablePathMap();
 
             String filterKey = command.getFilterKey();
+            String filterFallbackKey = command.getFilterFallbackKey();
             String filterValue = command.getFilterValue();
             String filterAlternativeOption = command.getFilterAlternativeOption();
 
@@ -301,8 +302,8 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                     log.debug(jsonObject.toString());
                     log.debug("------- jsonObject -------");
                     
-                    Map<String, List<Object>> filteredTargetsMap =
-                            JSONUtils.getFilteredValuesFromSource(targetVariablePathMap, filterKey, filterValue, filterAlternativeOption, jsonObject);
+                    Map<String, List<Object>> filteredTargetsMap = JSONUtils.getFilteredValuesFromSource(targetVariablePathMap, filterKey,
+                            filterFallbackKey, filterValue, filterAlternativeOption, jsonObject);
 
                     for (Map.Entry<String, List<Object>> filteredTargets : filteredTargetsMap.entrySet()) {
                         String targetVariable = filteredTargets.getKey();

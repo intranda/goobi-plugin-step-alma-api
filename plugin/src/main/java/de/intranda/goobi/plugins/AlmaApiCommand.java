@@ -35,6 +35,8 @@ public class AlmaApiCommand {
     @Getter
     private String filterKey;
     @Getter
+    private String filterFallbackKey;
+    @Getter
     private String filterValue;
     @Getter
     private String filterAlternativeOption;
@@ -181,6 +183,7 @@ public class AlmaApiCommand {
 
     private void initializeFilterFields(HierarchicalConfiguration config) {
         filterKey = config.getString("@key", "");
+        filterFallbackKey = config.getString("@fallback", filterKey);
         filterValue = config.getString("@value", "");
         if (filterValue.contains("$")) {
             // configured filterValue is a variable

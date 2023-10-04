@@ -309,8 +309,8 @@ public class JSONUtils {
         return results;
     }
 
-    public static Map<String, List<Object>> getFilteredValuesFromSource(Map<String, String> targets, String filterPath, String filterValue,
-            String filterAlternativeOption, JSONObject jsonObject) {
+    public static Map<String, List<Object>> getFilteredValuesFromSource(Map<String, String> targets, String filterPath, String filterFallbackPath,
+            String filterValue, String filterAlternativeOption, JSONObject jsonObject) {
 
         log.debug("======= getting filtered values from a map =======");
         Map<String, List<Object>> results = new HashMap<>();
@@ -318,17 +318,19 @@ public class JSONUtils {
 
         // get the common heading of targetPath and filterPath
         String commonHeadingTarget = getCommonHeading(targetPaths);
-        String commonHeading = getCommonHeading(commonHeadingTarget, filterPath);
+        String commonHeadingFilter = getCommonHeading(filterPath, filterFallbackPath);
+        String commonHeading = getCommonHeading(commonHeadingTarget, commonHeadingFilter);
 
         // use the common heading to get a list of common parents
         List<Object> commonParents = getCommonParents(commonHeading, jsonObject);
 
         // use the tailing part of filterPath to filter out the list of common parents
         String filterTail = getPathTail(filterPath, commonHeading);
+        String filterFallbackTail = getPathTail(filterFallbackPath, commonHeading);
 
         for (Object obj : commonParents) {
             // check existence of filterValue, and if so retrieve the targetValue
-            boolean filterValueMatches = isJsonValueAMatch(filterTail, filterValue, obj);
+            boolean filterValueMatches = isJsonValueAMatch(filterTail, filterFallbackTail, filterValue, obj);
             if (filterValueMatches) {
                 // use the tailing part of every targetPath to retrieve a list of targeted values
                 for (Map.Entry<String, String> target : targets.entrySet()) {
@@ -369,6 +371,12 @@ public class JSONUtils {
         }
 
         return results;
+    }
+
+    public static Map<String, List<Object>> getFilteredValuesFromSource(Map<String, String> targets, String filterPath, String filterValue,
+            String filterAlternativeOption, JSONObject jsonObject) {
+
+        return getFilteredValuesFromSource(targets, filterPath, filterPath, filterValue, filterAlternativeOption, jsonObject);
     }
 
     public static String getCommonHeading(String path1, String path2) {
@@ -439,22 +447,44 @@ public class JSONUtils {
     }
 
     private static boolean isJsonValueAMatch(String path, String value, Object obj) {
+        return isJsonValueAMatch(path, null, value, obj);
+    }
+
+    private static boolean isJsonValueAMatch(String path, String fallbackPath, String value, Object obj) {
+        log.debug("comparing value from the path: " + path);
+        int result = compareJsonValue(path, value, obj);
+        if (result == 2 && !StringUtils.isBlank(fallbackPath)) {
+            log.debug("comparing value from the fallback path: " + fallbackPath);
+            result = compareJsonValue(fallbackPath, value, obj);
+        }
+
+        return result == 0;
+    }
+
+    private static int compareJsonValue(String path, String value, Object obj) {
         // a blank path or value matches everything
         if (StringUtils.isAnyBlank(path, value)) {
-            return true;
+            return 0;
         }
 
         // get a list of values from the path
         List<Object> values = getValuesFromSourceGeneral(path, obj);
+        boolean valueEmpty = true;
         for (Object v : values) {
-            String valueString = String.valueOf(v);
+            String valueString = v == null ? "" : String.valueOf(v);
             if (value.equals(valueString)) {
-                return true;
+                return 0;
             }
+            valueEmpty = valueEmpty && StringUtils.isBlank(valueString);
+        }
+
+        if (valueEmpty) {
+            // all values are blank, signify this to use fallback
+            return 2;
         }
 
         // other cases
-        return false;
+        return 1;
     }
 
 
