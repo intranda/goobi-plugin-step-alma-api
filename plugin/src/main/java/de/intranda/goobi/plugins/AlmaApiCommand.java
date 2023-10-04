@@ -21,10 +21,7 @@ public class AlmaApiCommand {
     // pattern that matches every block enclosed by a pair of {}
     private static final Pattern PATTERN = Pattern.compile("(\\{[^\\{\\}]*\\})");
     private static final Pattern VARIABLE_PATTERN = Pattern.compile("(\\{\\$[^\\{\\}]*\\})");
-    //    private static final Pattern VARIABLE_PATTERN = Pattern.compile("(\\$[^\\{\\}]*)");
     private static final Map<String, List<String>> STATIC_VARIABLES_MAP = new HashMap<>();
-    //    @Getter
-    //    private String endpoint;
     @Getter
     private List<String> endpoints;
     @Getter
@@ -40,18 +37,11 @@ public class AlmaApiCommand {
     private String filterValue;
     @Getter
     private String filterAlternativeOption;
-    //    @Getter
-    //    private String targetVariable;
-    //    @Getter
-    //    private String targetPath;
     @Getter
     private Map<String, String> targetVariablePathMap;
 
-    //    private List<String> staticVariablesNeeded = new ArrayList<>(); // variables that shall be used to complete the endpoint, formulated as {$VARIALBE_NAME}
-
     public AlmaApiCommand(HierarchicalConfiguration config) {
         String rawEndpoint = config.getString("@endpoint");
-        //        endpoint = completeEndpoint(rawEndpoint, config);
         initializeEndpoints(rawEndpoint, config);
         method = config.getString("@method");
 
@@ -71,9 +61,6 @@ public class AlmaApiCommand {
         }
 
         try {
-            //            HierarchicalConfiguration targetConfig = config.configurationAt("target");
-            //            initializeTargetFields(targetConfig);
-
             List<HierarchicalConfiguration> targetConfigs = config.configurationsAt("target");
             initializeTargetFields(targetConfigs);
 
@@ -81,8 +68,6 @@ public class AlmaApiCommand {
             // merely used to make <target> optional, nothing special needs to be done here
         }
 
-        //        log.debug("endpoint = " + endpoint);
-        log.debug("method = " + method);
     }
 
     public void updateAllEndpoints() {
@@ -100,27 +85,8 @@ public class AlmaApiCommand {
 
         boolean staticVariablesReplaced = replaceAllStaticVariablesInEndpoints(rawEndpointReplaced);
         if (!staticVariablesReplaced) {
-            // TODO: report error
+            log.debug("static variables map was not successfully updated");
         }
-
-        // static variables may be multiple, but configurable variables will appear only once
-        // get the list of all static variables that will be used
-        //        Set<String> staticVariablesNeeded = getStaticVariablesNeeded(rawEndpointReplaced);
-        //        if (staticVariablesNeeded == null) {
-        //            // TODO: report error
-        //            return;
-        //        }
-        //
-        //        for (String staticVariable : staticVariablesNeeded) {
-        //            // staticVariable is key in the STATIC_VARIABLES_MAP, and it also appears as context in the endpoint
-        //            // hence just replace them with values from the STATIC_VARIABLES_MAP
-        //            endpoints = replaceStaticVariableInEndpoints(endpoints, staticVariable);
-        //        }
-        
-        // TODO: check existence of other variables, and if so, report error
-
-        // replace all configurable variables in all endpoints
-        //        endpoints = replaceAllCustomVariablesInEndpoints(endpoints, config);
     }
 
     private boolean replaceAllStaticVariablesInEndpoints(String rawEndpoint) {
@@ -128,7 +94,6 @@ public class AlmaApiCommand {
         // get the list of all static variables that will be used
         Set<String> staticVariablesNeeded = getStaticVariablesNeeded(rawEndpoint);
         if (staticVariablesNeeded == null) {
-            // TODO: report error
             return false;
         }
 
@@ -163,8 +128,8 @@ public class AlmaApiCommand {
     private List<String> replaceStaticVariableInEndpoints(List<String> rawEndpoints, String staticVariable) {
         List<String> results = new ArrayList<>();
         for (String rawEndpoint : rawEndpoints) {
-            List<String> endpoints = replaceStaticVariableInEndpoint(rawEndpoint, staticVariable);
-            results.addAll(endpoints);
+            List<String> replacedEndpoints = replaceStaticVariableInEndpoint(rawEndpoint, staticVariable);
+            results.addAll(replacedEndpoints);
         }
 
         return results;
@@ -199,14 +164,24 @@ public class AlmaApiCommand {
             log.debug("filterValue after replacing static variable = " + filterValue);
         }
 
-        filterAlternativeOption = config.getString("@alt", ""); // all | none | first | last | random
-        // TODO: check option
+        filterAlternativeOption = parseFilterAlternativeOption(config.getString("@alt", "")); // all | none | first | last | random
     }
 
-    //    private void initializeTargetFields(HierarchicalConfiguration config) {
-    //        targetVariable = config.getString("@var");
-    //        targetPath = config.getString("@path");
-    //    }
+    private String parseFilterAlternativeOption(String option) {
+        String result = "none";
+        switch (option.toLowerCase()) {
+            case "all":
+            case "first":
+            case "last":
+            case "random":
+                result = option.toLowerCase();
+                break;
+            default:
+                // nothing special
+        }
+
+        return result;
+    }
 
     private void initializeTargetFields(List<HierarchicalConfiguration> configs) {
         targetVariablePathMap = new HashMap<>();
@@ -215,17 +190,6 @@ public class AlmaApiCommand {
             String path = config.getString("@path");
             targetVariablePathMap.put(variable, path);
         }
-    }
-
-    private List<String> replaceAllCustomVariablesInEndpoints(List<String> rawEndpoints, HierarchicalConfiguration config) {
-        List<String> results = new ArrayList<>();
-
-        for (String rawEndpoint : rawEndpoints) {
-            String endpoint = completeEndpoint(rawEndpoint, config);
-            results.add(endpoint);
-        }
-
-        return results;
     }
 
     private String completeEndpoint(String rawEndpoint, HierarchicalConfiguration config) {
@@ -239,11 +203,6 @@ public class AlmaApiCommand {
             // TODO: report error when there is no such variable configured
             result = result.replace(variableContext, variableValue);
         }
-
-        // report error if there are still {} left
-        //        if (result.contains("{") || result.contains("}")) {
-        //            // TODO: report error
-        //        }
 
         return result;
     }
@@ -269,7 +228,7 @@ public class AlmaApiCommand {
             return false;
         }
 
-        List<String> values = Arrays.asList(new String[] { value });
+        List<String> values = Arrays.asList(value);
         return updateStaticVariablesMap(variable, values);
     }
 
@@ -298,8 +257,6 @@ public class AlmaApiCommand {
     }
 
     public static String wrapKey(String key) {
-        //        Consumer<String> getEnding = (s) -> {return s.endsWith("}") ? "" : "}";};
-
         if (key.startsWith("{$")) {
             return key + (key.endsWith("}") ? "" : "}");
         }

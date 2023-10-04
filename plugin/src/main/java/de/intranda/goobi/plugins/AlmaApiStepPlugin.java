@@ -76,32 +76,18 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
     private Step step;
     private Process process;
     private int processId;
-    @Getter
-    private String value;
-    @Getter
-    private boolean allowTaskFinishButtons;
+
     private String returnPath;
 
     private String url;
     private String apiKey;
-    private List<AlmaApiCommand> commandList = new ArrayList<>();
-    private List<ProcessPropertyTemplate> propertyList = new ArrayList<>();
+    private transient List<AlmaApiCommand> commandList = new ArrayList<>();
+    private transient List<ProcessPropertyTemplate> propertyList = new ArrayList<>();
 
     // create a custom response handler
     private static final ResponseHandler<String> RESPONSE_HANDLER = response -> {
         HttpEntity entity = response.getEntity();
         return entity != null ? EntityUtils.toString(entity) : null;
-
-        //        int status = response.getStatusLine().getStatusCode();
-        //        
-        //        if (status >= 200 && status < 300) {
-        //            HttpEntity entity = response.getEntity();
-        //            return entity != null ? EntityUtils.toString(entity) : null;
-        //        } else {
-        //            HttpEntity entity = response.getEntity();
-        //            log.debug("error entity = " + EntityUtils.toString(entity));
-        //            throw new ClientProtocolException("Unexpected response status: " + status);
-        //        }
     };
 
     @Override
@@ -113,12 +99,6 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
         // read parameters from correct block in configuration file
         SubnodeConfiguration config = ConfigPlugins.getProjectAndStepConfig(title, step);
-        value = config.getString("value", "default value");
-        allowTaskFinishButtons = config.getBoolean("allowTaskFinishButtons", false);
-        boolean testRun = config.getBoolean("test", false);
-        if (testRun) {
-            prepareStaticVariablesMapForTest();
-        }
 
         url = config.getString("url", "");
         apiKey = config.getString("api-key", "");
@@ -127,11 +107,13 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         List<HierarchicalConfiguration> variableConfigs = config.configurationsAt("variable");
         initializeVariablesMap(variableConfigs);
 
+        // initialize the list of all commands that will be run
         List<HierarchicalConfiguration> commandConfigs = config.configurationsAt("command");
         for (HierarchicalConfiguration commandConfig : commandConfigs) {
             commandList.add(new AlmaApiCommand(commandConfig));
         }
 
+        // initialize the list of all process properties that will be saved after running all commands
         List<HierarchicalConfiguration> propertyConfigs = config.configurationsAt("property");
         for (HierarchicalConfiguration propertyConfig : propertyConfigs) {
             String propertyName = propertyConfig.getString("@name");
@@ -142,30 +124,6 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         }
 
         log.info("AlmaApi step plugin initialized");
-    }
-
-    /**
-     * prepare sample variables to test
-     */
-    private void prepareStaticVariablesMapForTest() {
-        String var1 = "{$hello}";
-        List<String> var1Values = new ArrayList<>();
-        var1Values.add("HALLO");
-        var1Values.add("WELT");
-
-        String var2 = "what";
-        List<String> var2Values = new ArrayList<>();
-        var2Values.add("WAS");
-        var2Values.add("WHAT");
-
-        String var3 = "$anything";
-        List<String> var3Values = new ArrayList<>();
-        var3Values.add("AHA");
-        var3Values.add("BOBO");
-
-        AlmaApiCommand.updateStaticVariablesMap(var1, var1Values);
-        AlmaApiCommand.updateStaticVariablesMap(var2, var2Values);
-        AlmaApiCommand.updateStaticVariablesMap(var3, var3Values);
     }
 
     private void initializeVariablesMap(List<HierarchicalConfiguration> variableConfigs) {
@@ -280,9 +238,6 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
             Map<String, String> parameters = command.getParametersMap();
             List<String> endpoints = command.getEndpoints();
-
-            //            String targetPath = command.getTargetPath();
-            //            String targetVariable = command.getTargetVariable();
             Map<String, String> targetVariablePathMap = command.getTargetVariablePathMap();
 
             String filterKey = command.getFilterKey();
@@ -323,24 +278,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                         }
 
                     }
-
-//                    List<Object> filteredValues =
-//                            JSONUtils.getFilteredValuesFromSource(targetPath, filterKey, filterValue, filterAlternativeOption, jsonObject);
-//                    if (filteredValues.isEmpty()) {
-//                        log.debug("no match found");
-//                    }
-//
-//                    // save the filteredValues
-//                    List<String> targetValues = filteredValues.stream()
-//                            .map(String::valueOf)
-//                            .collect(Collectors.toList());
-//
-//                    boolean staticVariablesUpdated = AlmaApiCommand.updateStaticVariablesMap(targetVariable, targetValues);
-//                    if (!staticVariablesUpdated) {
-//                        log.debug("static variables map was not successfully updated");
-//                    }
                 }
-
             }
             return true;
 
@@ -393,8 +331,8 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         }
 
         StringBuilder sb = new StringBuilder();
-        for (String value : propertyValues) {
-            sb.append(value).append(", ");
+        for (String propertyValue : propertyValues) {
+            sb.append(propertyValue).append(", ");
         }
 
         String propertyValue = sb.toString();
@@ -451,11 +389,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
     }
 
     private JSONObject runCommand(String method, String url, String json) {
-        if (method.toLowerCase().equals("get")) {
-            return runCommandGet(url);
-        } else {
-            return runCommandNonGet(method, url, json);
-        }
+        return "get".equalsIgnoreCase(method) ? runCommandGet(url) : runCommandNonGet(method, url, json);
     }
 
     private JSONObject runCommandGet(String url) {
