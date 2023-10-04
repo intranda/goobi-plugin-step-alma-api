@@ -54,15 +54,15 @@ import org.json.simple.parser.ParseException;
 
 import de.sub.goobi.config.ConfigPlugins;
 import de.sub.goobi.helper.Helper;
+import de.sub.goobi.helper.VariableReplacer;
 import de.sub.goobi.helper.exceptions.SwapException;
 import de.sub.goobi.persistence.managers.PropertyManager;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import net.xeoh.plugins.base.annotations.PluginImplementation;
 import ugh.dl.DigitalDocument;
-import ugh.dl.DocStruct;
 import ugh.dl.Fileformat;
-import ugh.dl.Metadata;
+import ugh.dl.Prefs;
 import ugh.exceptions.PreferencesException;
 import ugh.exceptions.ReadException;
 
@@ -184,63 +184,34 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
     }
 
     private String getVariableValue(HierarchicalConfiguration variableConfig) {
-        // use @value if it is configured
-        if (variableConfig.containsKey("@value")) {
-            return variableConfig.getString("@value");
+        if (!variableConfig.containsKey("@value")) {
+            String message = "To define a <variable> tag, one has to specify its @value attribute. Usage of Goobi variables is also allowed.";
+            logBoth(processId, LogType.WARN, message);
+            return "";
         }
 
-        // otherwise, get value from metadata
-        if (variableConfig.containsKey("@metadata")) {
-            String mdType = variableConfig.getString("@metadata");
-            return getVariableValueFromMetadata(mdType);
-        }
-
-        // otherwise, report error
-        String message = "To define a <variable> tag, one has to specify one of its two attributes: either @value or @metadata.";
-        logBoth(processId, LogType.WARN, message);
-        return "";
-    }
-
-    private String getVariableValueFromMetadata(String mdType) {
-        log.debug("Getting variable value from metadata of type: " + mdType);
+        String value = variableConfig.getString("@value");
 
         try {
             Fileformat fileformat = process.readMetadataFile();
             DigitalDocument dd = fileformat.getDigitalDocument();
-            DocStruct logical = dd.getLogicalDocStruct();
+            Prefs prefs = process.getRegelsatz().getPreferences();
+            VariableReplacer replacer = new VariableReplacer(dd, prefs, process, step);
 
-            return findExistingMetadata(logical, mdType);
+            return replacer.replace(value);
 
         } catch (ReadException | IOException | SwapException e) {
             String message = "Failed to read the metadata file.";
             logBoth(processId, LogType.ERROR, message);
             e.printStackTrace();
+            return "";
 
         } catch (PreferencesException e) {
             String message = "PreferencesException caught while trying to get the digital document.";
             logBoth(processId, LogType.ERROR, message);
             e.printStackTrace();
+            return "";
         }
-
-        return "";
-    }
-
-    /**
-     * get the value of an existing Metadata
-     * 
-     * @param ds DocStruct whose Metadata should be searched
-     * @param elementType name of MetadataType
-     * @return value of the Metadata if successfully found, null otherwise
-     */
-    private String findExistingMetadata(DocStruct ds, String elementType) {
-        if (ds.getAllMetadata() != null) {
-            for (Metadata md : ds.getAllMetadata()) {
-                if (md.getType().getName().equals(elementType)) {
-                    return md.getValue();
-                }
-            }
-        }
-        return null;
     }
 
     @Override
