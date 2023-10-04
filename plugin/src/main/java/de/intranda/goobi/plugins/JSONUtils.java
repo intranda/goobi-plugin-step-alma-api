@@ -1,3 +1,22 @@
+/**
+ * This file is part of a plugin for Goobi - a Workflow tool for the support of mass digitization.
+ *
+ * Visit the websites for more information.
+ *          - https://goobi.io
+ *          - https://www.intranda.com
+ *          - https://github.com/intranda/goobi
+ *
+ * This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free
+ * Software Foundation; either version 2 of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program; if not, write to the Free Software Foundation, Inc., 59
+ * Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ *
+ */
+
 package de.intranda.goobi.plugins;
 
 import java.util.ArrayList;
@@ -18,10 +37,24 @@ import lombok.extern.log4j.Log4j2;
 public class JSONUtils {
     private static final JSONParser JSON_PARSER = new JSONParser();
 
+    /**
+     * parse the input JSON string to get a JSONObject
+     * 
+     * @param s JSON string
+     * @return JSONObject
+     * @throws ParseException
+     */
     public static JSONObject getJSONObjectFromString(String s) throws ParseException {
         return (JSONObject) JSON_PARSER.parse(s);
     }
 
+    /**
+     * a general version to get values from a JSON path from an object
+     * 
+     * @param source JSON path
+     * @param obj either JSONArray or JSONObject
+     * @return a list of values found
+     */
     public static List<Object> getValuesFromSourceGeneral(String source, Object obj) {
         if (obj instanceof JSONArray) {
             return getValuesFromSource(source, (JSONArray) obj);
@@ -35,6 +68,13 @@ public class JSONUtils {
         return new ArrayList<>();
     }
 
+    /**
+     * a general version to get values from a JSON path from a list of objects
+     * 
+     * @param source JSON path
+     * @param objects a list of JSONArrays or JSONObjects or mixed
+     * @return a list of values found
+     */
     public static List<Object> getValuesFromSourceGeneral(String source, List<Object> objects) {
         List<Object> results = new ArrayList<>();
         for (Object obj : objects) {
@@ -44,6 +84,13 @@ public class JSONUtils {
         return results;
     }
 
+    /**
+     * get values from a JSON path from a JSONObject
+     * 
+     * @param source JSON path
+     * @param jsonObject JSONObject
+     * @return a list of values found
+     */
     public static List<Object> getValuesFromSource(String source, JSONObject jsonObject) {
         List<Object> results = new ArrayList<>();
         // base case: no source specified
@@ -88,6 +135,13 @@ public class JSONUtils {
         return results;
     }
 
+    /**
+     * get values from a JSON path from a JSONArray
+     * 
+     * @param source JSON path
+     * @param jsonArray JSONArray
+     * @return a list of values found
+     */
     public static List<Object> getValuesFromSource(String source, JSONArray jsonArray) {
         List<Object> results = new ArrayList<>();
         // base case: no source specified
@@ -120,6 +174,14 @@ public class JSONUtils {
         return results;
     }
 
+    /**
+     * get common parents of the input two paths on the input JSONObject
+     * 
+     * @param targetPath
+     * @param filterPath
+     * @param jsonObject JSONObject
+     * @return a list of parent objects found
+     */
     public static List<Object> getCommonParents(String targetPath, String filterPath, JSONObject jsonObject) {
         List<Object> results = new ArrayList<>();
         // base case: either one goes no further, hence the current JSONObject is their common parent
@@ -156,6 +218,14 @@ public class JSONUtils {
         return results;
     }
 
+    /**
+     * get common parents of the input two paths in the input JSONArray
+     * 
+     * @param targetPath
+     * @param filterPath
+     * @param jsonArray JSONArray
+     * @return a list of parent objects found
+     */
     public static List<Object> getCommonParents(String targetPath, String filterPath, JSONArray jsonArray) {
         List<Object> results = new ArrayList<>();
         // base case: either one goes no further, then all JSONObjects in jsonArray are their common parents
@@ -201,6 +271,13 @@ public class JSONUtils {
         return results;
     }
 
+    /**
+     * get common parents on the JSONObject based on the input common heading string
+     * 
+     * @param commonHeading common heading string of multiple paths
+     * @param jsonObject JSONObject
+     * @return a list of parent objects found
+     */
     public static List<Object> getCommonParents(String commonHeading, JSONObject jsonObject) {
         List<Object> results = new ArrayList<>();
 
@@ -233,6 +310,13 @@ public class JSONUtils {
         return results;
     }
 
+    /**
+     * get common parents in the JSONArray based on the input common heading string
+     * 
+     * @param commonHeading common heading string of multiple paths
+     * @param jsonArray JSONArray
+     * @return a list of parent objects found
+     */
     public static List<Object> getCommonParents(String commonHeading, JSONArray jsonArray) {
         List<Object> results = new ArrayList<>();
 
@@ -267,6 +351,17 @@ public class JSONUtils {
         return results;
     }
 
+    /**
+     * filter out the input JSONObject and retrieve a list of values from the input target path
+     * 
+     * @param targetPath JSON path where aimed values are to be found
+     * @param filterPath JSON path where values needed for filtering are to be found
+     * @param filterValue value needed for comparison
+     * @param filterAlternativeOption alternative option when there is no match found for the filtering condition, options are all | first | last |
+     *            random | none, DEFAULT none
+     * @param jsonObject JSONObject
+     * @return a list of values found
+     */
     public static List<Object> getFilteredValuesFromSource(String targetPath, String filterPath, String filterValue, String filterAlternativeOption,
             JSONObject jsonObject) {
 
@@ -309,6 +404,18 @@ public class JSONUtils {
         return results;
     }
 
+    /**
+     * filter out the input JSONObject and retrieve values from multiple target paths at the same time
+     * 
+     * @param targets a map with its keys being names of target variables and its values being corresponding JSON paths
+     * @param filterPath JSON path where values needed for filtering are to be found
+     * @param filterFallbackPath JSON path from where values are to be retrieved when values retrieved from filterPath are all blank
+     * @param filterValue value needed for comparison
+     * @param filterAlternativeOption alternative option when there is no match found for the filtering condition, options are all | first | last |
+     *            random | none, DEFAULT none
+     * @param jsonObject JSONObject
+     * @return a list of values found
+     */
     public static Map<String, List<Object>> getFilteredValuesFromSource(Map<String, String> targets, String filterPath, String filterFallbackPath,
             String filterValue, String filterAlternativeOption, JSONObject jsonObject) {
 
@@ -373,12 +480,30 @@ public class JSONUtils {
         return results;
     }
 
+    /**
+     * filter out the input JSONObject and retrieve values from multiple target paths at the same time
+     * 
+     * @param targets a map with its keys being names of target variables and its values being corresponding JSON paths
+     * @param filterPath JSON path where values needed for filtering are to be found
+     * @param filterValue value needed for comparison
+     * @param filterAlternativeOption alternative option when there is no match found for the filtering condition, options are all | first | last |
+     *            random | none, DEFAULT none
+     * @param jsonObject JSONObject
+     * @return a list of values found
+     */
     public static Map<String, List<Object>> getFilteredValuesFromSource(Map<String, String> targets, String filterPath, String filterValue,
             String filterAlternativeOption, JSONObject jsonObject) {
 
         return getFilteredValuesFromSource(targets, filterPath, filterPath, filterValue, filterAlternativeOption, jsonObject);
     }
 
+    /**
+     * get the common heading string of the two input JSON paths
+     * 
+     * @param path1 JSON path string
+     * @param path2 JSON path string
+     * @return the common heading string of the two paths
+     */
     public static String getCommonHeading(String path1, String path2) {
         if (StringUtils.isAnyBlank(path1, path2)) {
             return "";
@@ -407,6 +532,12 @@ public class JSONUtils {
         return StringUtils.strip(commongHeading, ".");
     }
 
+    /**
+     * get the common heading string of a list of JSON paths
+     * 
+     * @param paths a list of JSON paths
+     * @return the common heading string of all paths in the input list
+     */
     public static String getCommonHeading(List<String> paths) {
         if (paths == null || paths.isEmpty()) {
             return "";
@@ -424,6 +555,13 @@ public class JSONUtils {
         return commonHeading;
     }
 
+    /**
+     * get the chopped tail of the input JSON path
+     * 
+     * @param path JSON path string
+     * @param heading the heading string that is to be chopped out from path
+     * @return the chopped tail of path
+     */
     private static String getPathTail(String path, String heading) {
         log.debug("getting path tail from: '" + path + "' where heading = " + heading);
 
@@ -437,6 +575,13 @@ public class JSONUtils {
         return StringUtils.strip(filterTail, ".");
     }
 
+    /**
+     * get a list of chopped tails of the input list of JSON paths
+     * 
+     * @param paths a list of JSON paths
+     * @param heading common heading string that is to be chopped out from every path in the list
+     * @return a list of chopped tails of the input paths
+     */
     private static List<String> getPathTails(List<String> paths, String heading) {
         List<String> tails = new ArrayList<>(paths.size());
         for (String path : paths) {
@@ -446,10 +591,27 @@ public class JSONUtils {
         return tails;
     }
 
+    /**
+     * checks whether the value retrieved from the input JSON path matches the input value
+     * 
+     * @param path JSON path
+     * @param value value to match
+     * @param obj either JSONObject or JSONArray
+     * @return true if the value from path matches the input value, false otherwise
+     */
     private static boolean isJsonValueAMatch(String path, String value, Object obj) {
         return isJsonValueAMatch(path, null, value, obj);
     }
 
+    /**
+     * checks whether the value from the input JSON path matches the input value
+     * 
+     * @param path JSON path
+     * @param fallbackPath JSON path, from where the values are to be used instead if values from path are all blank
+     * @param value value to match
+     * @param obj either JSONObject or JSONArray
+     * @return true if the value from path (OR if it is blank there, from fallbackPath) matches the input value, false otherwise
+     */
     private static boolean isJsonValueAMatch(String path, String fallbackPath, String value, Object obj) {
         log.debug("comparing value from the path: " + path);
         int result = compareJsonValue(path, value, obj);
@@ -461,6 +623,14 @@ public class JSONUtils {
         return result == 0;
     }
 
+    /**
+     * compare values retrieved from the JSON path to the input value
+     * 
+     * @param path JSON path
+     * @param value value to compare with
+     * @param obj either JSONObject or JSONArray
+     * @return 0 if the values are equal, 2 if the values retrieved from path are all blank, 1 otherwise
+     */
     private static int compareJsonValue(String path, String value, Object obj) {
         // a blank path or value matches everything
         if (StringUtils.isAnyBlank(path, value)) {
@@ -486,7 +656,5 @@ public class JSONUtils {
         // other cases
         return 1;
     }
-
-
 
 }

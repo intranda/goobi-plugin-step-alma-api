@@ -126,6 +126,11 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         log.info("AlmaApi step plugin initialized");
     }
 
+    /**
+     * initialize the static variables map in AlmaApiCommand, which will be used during creations of AlmaApiCommand objects
+     * 
+     * @param variableConfigs a list of HierarchicalConfiguration objects
+     */
     private void initializeVariablesMap(List<HierarchicalConfiguration> variableConfigs) {
         for (HierarchicalConfiguration variableConfig : variableConfigs) {
             String variableName = variableConfig.getString("@name");
@@ -141,6 +146,12 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         }
     }
 
+    /**
+     * get the configured variable value, which may be Goobi variables
+     * 
+     * @param variableConfig HierarchicalConfiguration
+     * @return value of the variable after replacing Goobi variables
+     */
     private String getVariableValue(HierarchicalConfiguration variableConfig) {
         if (!variableConfig.containsKey("@value")) {
             String message = "To define a <variable> tag, one has to specify its @value attribute. Usage of Goobi variables is also allowed.";
@@ -229,6 +240,12 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         return successful ? PluginReturnValue.FINISH : PluginReturnValue.ERROR;
     }
 
+    /**
+     * prepare a command and run it
+     * 
+     * @param command AlmaApiCommand
+     * @return true if the command is successfully run, false if any exception occurred
+     */
     private boolean prepareAndRunCommand(AlmaApiCommand command) {
         try {
             // update endpoints
@@ -292,6 +309,12 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
     }
 
+    /**
+     * save process properties
+     * 
+     * @param propertyTemplate ProcessPropertyTemplate
+     * @return true if successful, false if any exception occurred
+     */
     private boolean saveProperty(ProcessPropertyTemplate propertyTemplate) {
         try {
             String propertyName = propertyTemplate.getName();
@@ -318,6 +341,13 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
     }
 
+    /**
+     * get the property value that should be saved
+     * 
+     * @param propertyValues the list of property values to choose from
+     * @param choice options are all | first | last | random, DEFAULT all
+     * @return property value that is to be saved
+     */
     private String getPropertyValue(List<String> propertyValues, String choice) {
         switch (choice.toLowerCase()) {
             case "first":
@@ -340,6 +370,13 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         return propertyValue.substring(0, propertyValue.lastIndexOf(", "));
     }
 
+    /**
+     * get the Processproperty object
+     * 
+     * @param title title of the Processproperty object
+     * @param overwrite true if an existing old Processproperty object should be used, false if a new one should be created no matter what
+     * @return the Processproperty object that is to be saved
+     */
     private Processproperty getProcesspropertyObject(String title, boolean overwrite) {
         if (overwrite) {
             // try to retrieve the old object first
@@ -358,6 +395,13 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         return property;
     }
 
+    /**
+     * create the full request url
+     * 
+     * @param endpoint endpoint string whose space holders as well as variables are already properly replaced
+     * @param parameters a map of parameters
+     * @return the full request url
+     */
     private String createRequestUrl(String endpoint, Map<String, String> parameters) {
         // combine url and endpoint to form the base
         StringBuilder urlBuilder = new StringBuilder(url);
@@ -384,14 +428,35 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         return urlBuilder.toString();
     }
 
+    /**
+     * run the command
+     * 
+     * @param method REST method
+     * @param url request url
+     * @return response as JSONObject, or null if any error occurred
+     */
     private JSONObject runCommand(String method, String url) {
         return runCommand(method, url, "");
     }
 
+    /**
+     * run the command
+     * 
+     * @param method REST method
+     * @param url request url
+     * @param json JSON body that is to be sent by request, NOT IN USE YET
+     * @return response as JSONObject, or null if any error occurred
+     */
     private JSONObject runCommand(String method, String url, String json) {
         return "get".equalsIgnoreCase(method) ? runCommandGet(url) : runCommandNonGet(method, url, json);
     }
 
+    /**
+     * run the command via GET method
+     * 
+     * @param url request url
+     * @return response as JSONObject, or null if any error occurred
+     */
     private JSONObject runCommandGet(String url) {
         HttpGet httpGet = new HttpGet(url);
         try (CloseableHttpClient client = HttpClients.createDefault()) {
@@ -418,6 +483,14 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         }
     }
 
+    /**
+     * run the command via a method other than GET
+     * 
+     * @param method REST method
+     * @param url request url
+     * @param json JSON body that is to be sent by request
+     * @return response as JSONObject, or null if any error occurred
+     */
     private JSONObject runCommandNonGet(String method, String url, String json) {
         HttpEntityEnclosingRequestBase httpBase;
         switch (method.toLowerCase()) {
