@@ -123,7 +123,8 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             propertyList.add(new ProcessPropertyTemplate(propertyName, propertyValue, propertyIndex, overwrite));
         }
 
-        log.info("AlmaApi step plugin initialized");
+        String message = "AlmaApi step plugin initialized.";
+        logBoth(processId, LogType.INFO, message);
     }
 
     /**
@@ -236,7 +237,8 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             successful = successful && saveProperty(property);
         }
 
-        log.info("AlmaApi step plugin executed");
+        String message = "AlmaApi step plugin executed.";
+        logBoth(processId, LogType.INFO, message);
         return successful ? PluginReturnValue.FINISH : PluginReturnValue.ERROR;
     }
 
@@ -463,7 +465,8 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             httpGet.setHeader("Accept", "application/json");
             httpGet.setHeader("Content-type", "application/json");
 
-            log.info("Executing request " + httpGet.getRequestLine());
+            String message = "Executing request " + httpGet.getRequestLine();
+            logBoth(processId, LogType.INFO, message);
 
             String responseBody = client.execute(httpGet, RESPONSE_HANDLER);
 
@@ -512,7 +515,8 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             httpBase.setHeader("Content-type", "application/json");
             httpBase.setEntity(new StringEntity(json));
 
-            log.info("Executing request " + httpBase.getRequestLine());
+            String message = "Executing request " + httpBase.getRequestLine();
+            logBoth(processId, LogType.INFO, message);
 
             String responseBody = client.execute(httpBase, RESPONSE_HANDLER);
             return JSONUtils.getJSONObjectFromString(responseBody);
