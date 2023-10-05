@@ -38,11 +38,11 @@
         	<!-- define the value of the placeholder {mms_id} using the variable named MMS_ID -->
         	<mms_id>{$MMS_ID}</mms_id>
         	
-        	<!-- Filter condition that is to be applied on the REST call response
+        	<!-- Filter condition that is to be applied on the REST call response. OPTIONAL.
         	      @key: JSON path from which the values are to be fetched for the filtering process
-        	      @fallback: JSON path that shall be used when the JSON path configured by @key contains no value
+        	      @fallback: JSON path that shall be used when the JSON path configured by @key contains no value. OPTIONAL.
         	      @value: value to be compared with, which can be a plain text value, or a variable defined previously in the format {$VARIABLE}
-        	      @alt: alternative option if there is no match found. Options are: all | first | last | random | none
+        	      @alt: alternative option if there is no match found. Options are: all | first | last | random | none. OPTIONAL.
         	              - all: filter nothing out, search the whole JSONObject for the following targets
         	              - first: get the first JSONObject related to the common heading path shared by filter and targets, and search for targets within it
         	              - last: get the last JSONObject related to the common heading path shared by filter and targets, and search for targets within it
@@ -51,7 +51,7 @@
         	 -->
         	<filter key="item.item_data.alternative_call_number" fallback="item.holding_data.permanent_call_number" value="{$SIGNATURE}" alt="all" />
         	
-        	<!-- Target values that is to be retrieved from the REST call response and saved as a variable.
+        	<!-- Target values that is to be retrieved from the REST call response and saved as a variable. OPTIONAL.
         	      @var: name of the variable that is to be used to save the target values retrieved. 
         	                If the variable was already defined before, then its value will be updated. Otherwise a new variable under this name will be created. 
         	      @path: JSON path from where values are to be retrieved.
