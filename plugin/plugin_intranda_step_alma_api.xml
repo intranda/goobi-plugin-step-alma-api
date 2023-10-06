@@ -104,8 +104,13 @@
         	<parameter name="circ_desk" value="DEFAULT_CIRC_DESK" />
         </command>
         
-        <!-- A property tag is used to define a process property that is to be saved after running all previous commands. OPTIONAL.
-              @name: name of the new process property
+        <!-- A save tag is used to define an entry that is to be saved after running all previous commands. OPTIONAL.
+              @type: type of the entry, OPTIONS are property | metadata
+                         - property: save the entry as a process property
+                         - metadata: save the entry as a metadata
+              @name: name of the entry, which means
+                           - property name if @type is "property"
+                           - metadata type name if @type is "metadata"
               @value: value of the new process property, possible values are
                            - a plain text value
                            - a variable defined before all <command> blocks via a <variable> tag
@@ -116,10 +121,11 @@
                             - random: save a random one from all retrieved values
                             - all: join all retrieved values to formulate a single string separated by commas and save it. DEFAULT. 
               @overwrite: true if the old property named so should be reused, false if a new property should be created, DEFAULT false.
-        -->
-        <property name="holding_id" value="{$HOLDING_ID}" choice="all" overwrite="true" />
-        <!-- There can be multiple property tags configured. -->
-        <property name="item_pid" value="{$ITEM_PID}" choice="all" />
+        -->     
+        <save type="property" name="holding_id" value="{$HOLDING_ID}" choice="first" overwrite="true" />
+        <!-- There can be multiple save tags configured. -->
+        <save type="property" name="item_pid" value="{$ITEM_PID}" choice="first" overwrite="true" />
+        <save type="metadata" name="CatalogIDDigital" value="{$MMS_ID}" choice="first" overwrite="true" />
               
     </config>
 

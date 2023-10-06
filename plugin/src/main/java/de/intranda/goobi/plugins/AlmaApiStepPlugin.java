@@ -61,10 +61,14 @@ import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import net.xeoh.plugins.base.annotations.PluginImplementation;
 import ugh.dl.DigitalDocument;
+import ugh.dl.DocStruct;
 import ugh.dl.Fileformat;
+import ugh.dl.Metadata;
 import ugh.dl.Prefs;
+import ugh.exceptions.MetadataTypeNotAllowedException;
 import ugh.exceptions.PreferencesException;
 import ugh.exceptions.ReadException;
+import ugh.exceptions.WriteException;
 
 @PluginImplementation
 @Log4j2
@@ -82,7 +86,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
     private String url;
     private String apiKey;
     private transient List<AlmaApiCommand> commandList = new ArrayList<>();
-    private transient List<ProcessPropertyTemplate> propertyList = new ArrayList<>();
+    private transient List<EntryToSaveTemplate> entriesToSaveList = new ArrayList<>();
 
     // create a custom response handler
     private static final ResponseHandler<String> RESPONSE_HANDLER = response -> {
@@ -113,14 +117,15 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             commandList.add(new AlmaApiCommand(commandConfig));
         }
 
-        // initialize the list of all process properties that will be saved after running all commands
-        List<HierarchicalConfiguration> propertyConfigs = config.configurationsAt("property");
-        for (HierarchicalConfiguration propertyConfig : propertyConfigs) {
-            String propertyName = propertyConfig.getString("@name");
-            String propertyValue = propertyConfig.getString("@value");
-            String propertyIndex = propertyConfig.getString("@index", "all");
-            boolean overwrite = propertyConfig.getBoolean("@overwrite", false);
-            propertyList.add(new ProcessPropertyTemplate(propertyName, propertyValue, propertyIndex, overwrite));
+        // initialize the list of all entries that will be saved after running all commands
+        List<HierarchicalConfiguration> saveConfigs = config.configurationsAt("save");
+        for (HierarchicalConfiguration saveConfig : saveConfigs) {
+            String saveType = saveConfig.getString("@type");
+            String saveName = saveConfig.getString("@name");
+            String saveValue = saveConfig.getString("@value");
+            String saveChoice = saveConfig.getString("@choice", "all");
+            boolean overwrite = saveConfig.getBoolean("@overwrite", false);
+            entriesToSaveList.add(new EntryToSaveTemplate(saveType, saveName, saveValue, saveChoice, overwrite));
         }
 
         String message = "AlmaApi step plugin initialized.";
@@ -233,8 +238,8 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             successful = successful && prepareAndRunCommand(command);
         }
 
-        for (ProcessPropertyTemplate property : propertyList) {
-            successful = successful && saveProperty(property);
+        for (EntryToSaveTemplate entry : entriesToSaveList) {
+            successful = successful && saveEntry(entry);
         }
 
         String message = "AlmaApi step plugin executed.";
@@ -312,19 +317,40 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
     }
 
     /**
+     * save the entry value as process property or metadata
+     * 
+     * @param entry EntryToSaveTemplate
+     * @return true if the entry is successfully saved or its type is unknown, false if any errors should occur
+     */
+    private boolean saveEntry(EntryToSaveTemplate entry) {
+        String type = entry.getType();
+        switch (type.toLowerCase()) {
+            case "property":
+                return saveProperty(entry);
+            case "metadata":
+                return saveMetadata(entry);
+            default:
+                String message = "Ignoring unknown entry type: " + type + ".";
+                logBoth(processId, LogType.WARN, message);
+                return true;
+        }
+
+    }
+
+    /**
      * save process properties
      * 
-     * @param propertyTemplate ProcessPropertyTemplate
+     * @param propertyTemplate EntryToSaveTemplate of type "property"
      * @return true if successful, false if any exception occurred
      */
-    private boolean saveProperty(ProcessPropertyTemplate propertyTemplate) {
+    private boolean saveProperty(EntryToSaveTemplate propertyTemplate) {
         try {
             String propertyName = propertyTemplate.getName();
             String wrappedKey = AlmaApiCommand.wrapKey(propertyTemplate.getValue());
             List<String> propertyValues = AlmaApiCommand.getVariableValues(wrappedKey);
 
             // determine property value according to the configured choice
-            String propertyValue = getPropertyValue(propertyValues, propertyTemplate.getChoice());
+            String propertyValue = getEntryValue(propertyValues, propertyTemplate.getChoice());
 
             // get the Processproperty object
             Processproperty propertyObject = getProcesspropertyObject(propertyName, propertyTemplate.isOverwrite());
@@ -341,35 +367,6 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             return false;
         }
 
-    }
-
-    /**
-     * get the property value that should be saved
-     * 
-     * @param propertyValues the list of property values to choose from
-     * @param choice options are all | first | last | random, DEFAULT all
-     * @return property value that is to be saved
-     */
-    private String getPropertyValue(List<String> propertyValues, String choice) {
-        switch (choice.toLowerCase()) {
-            case "first":
-                return propertyValues.get(0);
-            case "last":
-                return propertyValues.get(propertyValues.size() - 1);
-            case "random":
-                return propertyValues.get(new Random().nextInt(propertyValues.size()));
-            default:
-                // combine all values
-        }
-
-        StringBuilder sb = new StringBuilder();
-        for (String propertyValue : propertyValues) {
-            sb.append(propertyValue).append(", ");
-        }
-
-        String propertyValue = sb.toString();
-
-        return propertyValue.substring(0, propertyValue.lastIndexOf(", "));
     }
 
     /**
@@ -395,6 +392,134 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         property.setProcessId(processId);
 
         return property;
+    }
+
+    /**
+     * save metadata
+     * 
+     * @param metadataTemplate EntryToSaveTemplate of type "metadata"
+     * @return true if successful, false if any exception occurred
+     */
+    private boolean saveMetadata(EntryToSaveTemplate metadataTemplate) {
+        String mdTypeName = metadataTemplate.getName();
+        String wrappedKey = AlmaApiCommand.wrapKey(metadataTemplate.getValue());
+        List<String> metadataValues = AlmaApiCommand.getVariableValues(wrappedKey);
+
+        // determine metadata value according to the configured choice
+        String mdValue = getEntryValue(metadataValues, metadataTemplate.getChoice());
+
+        try {
+            Fileformat fileformat = process.readMetadataFile();
+            DigitalDocument digital = fileformat.getDigitalDocument();
+            DocStruct logical = digital.getLogicalDocStruct();
+            
+            Metadata oldMd = metadataTemplate.isOverwrite() ? findExistingMetadata(logical, mdTypeName) : null;
+            Metadata newMd = createNewMetadata(mdTypeName, mdValue);
+            if (oldMd != null) {
+                logical.changeMetadata(oldMd, newMd);
+            } else {
+                logical.addMetadata(newMd);
+            }
+
+            process.writeMetadataFile(fileformat);
+
+            return true;
+            
+        } catch (ReadException | IOException | SwapException e) {
+            String message = "Failed to read the metadata file.";
+            logBoth(processId, LogType.ERROR, message);
+            e.printStackTrace();
+            return false;
+
+        } catch (PreferencesException e) {
+            String message = "PreferencesException caught while trying to get the digital document.";
+            logBoth(processId, LogType.ERROR, message);
+            e.printStackTrace();
+            return false;
+
+        } catch (MetadataTypeNotAllowedException e) {
+            String message = "Metadata type '" + mdTypeName + "' is not allowed";
+            logBoth(processId, LogType.ERROR, message);
+            e.printStackTrace();
+            return false;
+
+        } catch (WriteException e) {
+            String message = "Failed to save the metadata file.";
+            logBoth(processId, LogType.ERROR, message);
+            e.printStackTrace();
+            return false;
+
+        } catch (Exception e) {
+            // any kind of exception should stop further steps, e.g. NullPointerException
+            String message = "Unusual exception caught while saving metadata: " + e.toString();
+            logBoth(processId, LogType.ERROR, message);
+            e.printStackTrace();
+            return false;
+        }
+
+    }
+
+    /**
+     * try to retrieve an existing metadata object
+     * 
+     * @param ds DocStruct
+     * @param mdTypeName name of the MetadataType
+     * @return the metadata object if found, null otherwise
+     */
+    private Metadata findExistingMetadata(DocStruct ds, String mdTypeName) {
+        if (ds.getAllMetadata() != null) {
+            for (Metadata md : ds.getAllMetadata()) {
+                if (md.getType().getName().equals(mdTypeName)) {
+                    return md;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * prepare a new Metadata object based on the input type and value
+     * 
+     * @param mdTypeName type of the new Metadata object
+     * @param value value of the new Metadata object
+     * @return a Metadata object of the given type and initialized with the given value
+     * @throws MetadataTypeNotAllowedException
+     */
+    private Metadata createNewMetadata(String mdTypeName, String value) throws MetadataTypeNotAllowedException {
+        log.debug("creating new Metadata of type: " + mdTypeName);
+        Prefs prefs = process.getRegelsatz().getPreferences();
+        Metadata md = new Metadata(prefs.getMetadataTypeByName(mdTypeName));
+        md.setValue(value);
+        return md;
+    }
+
+    /**
+     * get the entry value that should be saved
+     * 
+     * @param entryValues the list of entry values to choose from
+     * @param choice options are all | first | last | random, DEFAULT all
+     * @return property value that is to be saved
+     */
+    private String getEntryValue(List<String> entryValues, String choice) {
+        switch (choice.toLowerCase()) {
+            case "first":
+                return entryValues.get(0);
+            case "last":
+                return entryValues.get(entryValues.size() - 1);
+            case "random":
+                return entryValues.get(new Random().nextInt(entryValues.size()));
+            default:
+                // combine all values
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (String entryValue : entryValues) {
+            sb.append(entryValue).append(", ");
+        }
+
+        String value = sb.toString();
+
+        return value.substring(0, value.lastIndexOf(", "));
     }
 
     /**
