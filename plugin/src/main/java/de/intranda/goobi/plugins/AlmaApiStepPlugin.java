@@ -402,8 +402,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      */
     private boolean saveMetadata(EntryToSaveTemplate metadataTemplate) {
         String mdTypeName = metadataTemplate.getName();
-        String wrappedKey = AlmaApiCommand.wrapKey(metadataTemplate.getValue());
-        List<String> metadataValues = AlmaApiCommand.getVariableValues(wrappedKey);
+        List<String> metadataValues = AlmaApiCommand.getVariableValues(metadataTemplate.getValue());
 
         // determine metadata value according to the configured choice
         String mdValue = getEntryValue(metadataValues, metadataTemplate.getChoice());

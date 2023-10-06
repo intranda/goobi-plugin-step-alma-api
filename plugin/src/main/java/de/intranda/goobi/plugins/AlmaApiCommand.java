@@ -378,7 +378,7 @@ public class AlmaApiCommand {
      * @return all possible values of this static variable
      */
     public static List<String> getVariableValues(String key) {
-        return STATIC_VARIABLES_MAP.containsKey(key) ? STATIC_VARIABLES_MAP.get(key) : new ArrayList<>();
+        return STATIC_VARIABLES_MAP.containsKey(key) ? STATIC_VARIABLES_MAP.get(key) : Arrays.asList(key);
     }
 
 }
