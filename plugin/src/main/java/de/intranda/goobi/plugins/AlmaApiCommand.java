@@ -19,6 +19,10 @@
 
 package de.intranda.goobi.plugins;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -32,6 +36,8 @@ import java.util.regex.Pattern;
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.lang3.StringUtils;
 
+import de.sub.goobi.helper.StorageProvider;
+import de.sub.goobi.helper.StorageProviderInterface;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 
@@ -43,6 +49,8 @@ public class AlmaApiCommand {
     private static final Pattern VARIABLE_PATTERN = Pattern.compile("(\\{\\$[^\\{\\}]*\\})");
     // static variables created before creations of all commands or created by previous commands, shared by all commands
     private static final Map<String, List<String>> STATIC_VARIABLES_MAP = new HashMap<>();
+
+    private static final StorageProviderInterface storageProvider = StorageProvider.getInstance();
     @Getter
     private List<String> endpoints;
     @Getter
@@ -59,11 +67,19 @@ public class AlmaApiCommand {
     private String filterAlternativeOption;
     @Getter
     private Map<String, String> targetVariablePathMap;
+    @Getter
+    private String headerAccept;
+    @Getter
+    private String headerContentType;
+    @Getter
+    private String bodyValue;
 
     public AlmaApiCommand(HierarchicalConfiguration config) {
         String rawEndpoint = config.getString("@endpoint");
         initializeEndpoints(rawEndpoint, config);
         method = config.getString("@method");
+        headerAccept = wrapHeaderAccept(config.getString("@accept", "json"));
+        log.debug("headerAccept = " + headerAccept);
 
         List<HierarchicalConfiguration> parameterConfigs = config.configurationsAt("parameter");
         for (HierarchicalConfiguration parameterConfig : parameterConfigs) {
@@ -86,6 +102,15 @@ public class AlmaApiCommand {
 
         } catch (IllegalArgumentException e) {
             // merely used to make <target> optional, nothing special needs to be done here
+        }
+
+        // initialize body settings for current command if it is configured
+        try {
+            HierarchicalConfiguration bodyConfig = config.configurationAt("body");
+            initializeBodyFields(bodyConfig);
+        } catch (IllegalArgumentException e) {
+            headerContentType = "application/json";
+            bodyValue = "";
         }
 
     }
@@ -198,6 +223,23 @@ public class AlmaApiCommand {
         return results;
     }
 
+    private String wrapHeaderAccept(String str) {
+        final String headerAcceptHead = "application/";
+        //        if (StringUtils.isBlank(str)) {
+        //            // use default setting application/json
+        //            return headerAcceptHead + "json";
+        //        }
+
+        String[] parts = str.split("/");
+        String acceptType = parts[parts.length - 1].toLowerCase();
+        if ("xml".equals(acceptType) || "json".equals(acceptType)) {
+            return headerAcceptHead + acceptType;
+        } else {
+            log.debug("Unknown accept type: " + acceptType + ". Using JSON instead.");
+            return headerAcceptHead + "json";
+        }
+    }
+
     /**
      * initialize all fields needed for filtering
      * 
@@ -258,6 +300,52 @@ public class AlmaApiCommand {
             String path = config.getString("@path");
             targetVariablePathMap.put(variable, path);
         }
+    }
+
+    private void initializeBodyFields(HierarchicalConfiguration config) {
+        String type = config.getString("@type").toLowerCase();
+        if ("xml".equals(type) || "json".equals(type)) {
+            headerContentType = "application/" + type;
+        } else {
+            log.debug("Unknown body type: '" + type + "'. Using JSON instead.");
+            headerContentType = "application/json";
+        }
+
+        String filePath = config.getString("@src");
+        String fileContent = readFileContent(filePath);
+        log.debug("------- FILE CONTENT -------");
+        log.debug(fileContent);
+        bodyValue = StringUtils.isBlank(fileContent) ? "" : fileContent;
+    }
+
+    private String readFileContent(String path) {
+        log.debug("reading file content from: " + path);
+
+        StringBuilder contentBuilder = new StringBuilder();
+        Path filePath = Path.of(path);
+        try {
+            BufferedReader reader = Files.newBufferedReader(filePath);
+            String line;
+            while ((line = reader.readLine()) != null) {
+                contentBuilder.append(line + System.lineSeparator());
+            }
+
+            return contentBuilder.toString();
+
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
+        //        try {
+        //            FileInputStream inputStream = storageProvider.newInputStream(Path.of(path));
+        //
+        //        } catch (IOException e) {
+        //            // TODO Auto-generated catch block
+        //            e.printStackTrace();
+        //        }
+
+        return "";
     }
 
     /**

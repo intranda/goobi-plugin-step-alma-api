@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.configuration.SubnodeConfiguration;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
@@ -259,6 +260,9 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             command.updateAllEndpoints();
             // get method
             String method = command.getMethod();
+            String headerAccept = command.getHeaderAccept(); // default application/json, unless configured
+            String headerContentType = command.getHeaderContentType(); // default application/json, unless in <body> configured
+            String bodyValue = command.getBodyValue();
 
             Map<String, String> parameters = command.getParametersMap();
             List<String> endpoints = command.getEndpoints();
@@ -274,7 +278,8 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                 log.debug("requestUrl = " + requestUrl);
 
                 // run the command
-                JSONObject jsonObject = runCommand(method, requestUrl);
+                JSONObject jsonObject = StringUtils.isBlank(headerContentType) ? runCommand(method, headerAccept, headerContentType, requestUrl)
+                        : runCommand(method, headerAccept, headerContentType, requestUrl, bodyValue);
 
                 if (jsonObject != null) {
                     log.debug("------- jsonObject -------");
@@ -558,43 +563,53 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * run the command
      * 
      * @param method REST method
+     * @param headerAccept value for the header parameter Accept
+     * @param headerContentType value for the header parameter Content-type
      * @param url request url
      * @return response as JSONObject, or null if any error occurred
      */
-    private JSONObject runCommand(String method, String url) {
-        return runCommand(method, url, "");
+    private JSONObject runCommand(String method, String headerAccept, String headerContentType, String url) {
+        return runCommand(method, headerAccept, headerContentType, url, "");
     }
 
     /**
      * run the command
      * 
      * @param method REST method
+     * @param headerAccept value for the header parameter Accept
+     * @param headerContentType value for the header parameter Content-type
      * @param url request url
-     * @param json JSON body that is to be sent by request, NOT IN USE YET
+     * @param body JSON or XML body that is to be sent by request, NOT IN USE YET
      * @return response as JSONObject, or null if any error occurred
      */
-    private JSONObject runCommand(String method, String url, String json) {
-        return "get".equalsIgnoreCase(method) ? runCommandGet(url) : runCommandNonGet(method, url, json);
+    private JSONObject runCommand(String method, String headerAccept, String headerContentType, String url, String body) {
+        return "get".equalsIgnoreCase(method) ? runCommandGet(headerAccept, headerContentType, url)
+                : runCommandNonGet(method, headerAccept, headerContentType, url, body);
     }
 
     /**
      * run the command via GET method
      * 
+     * @param headerAccept value for the header parameter Accept
+     * @param headerContentType value for the header parameter Content-type
      * @param url request url
      * @return response as JSONObject, or null if any error occurred
      */
-    private JSONObject runCommandGet(String url) {
+    private JSONObject runCommandGet(String headerAccept, String headerContentType, String url) {
         HttpGet httpGet = new HttpGet(url);
         try (CloseableHttpClient client = HttpClients.createDefault()) {
-            httpGet.setHeader("Accept", "application/json");
-            httpGet.setHeader("Content-type", "application/json");
+            httpGet.setHeader("Accept", headerAccept);
+            httpGet.setHeader("Content-type", headerContentType);
 
             String message = "Executing request " + httpGet.getRequestLine();
             logBoth(processId, LogType.INFO, message);
 
             String responseBody = client.execute(httpGet, RESPONSE_HANDLER);
+            log.debug("------- response body -------");
+            log.debug(responseBody);
+            log.debug("------- response body -------");
 
-            return JSONUtils.getJSONObjectFromString(responseBody);
+            return headerAccept.endsWith("json") ? JSONUtils.getJSONObjectFromString(responseBody) : null;
 
         } catch (IOException e) {
             String message = "IOException caught while executing request: " + httpGet.getRequestLine();
@@ -614,11 +629,13 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * run the command via a method other than GET
      * 
      * @param method REST method
+     * @param headerAccept value for the header parameter Accept
+     * @param headerContentType value for the header parameter Content-type
      * @param url request url
-     * @param json JSON body that is to be sent by request
+     * @param body JSON or XML body that is to be sent by request
      * @return response as JSONObject, or null if any error occurred
      */
-    private JSONObject runCommandNonGet(String method, String url, String json) {
+    private JSONObject runCommandNonGet(String method, String headerAccept, String headerContentType, String url, String body) {
         HttpEntityEnclosingRequestBase httpBase;
         switch (method.toLowerCase()) {
             case "put":
@@ -635,15 +652,19 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         }
 
         try (CloseableHttpClient client = HttpClients.createDefault()) {
-            httpBase.setHeader("Accept", "application/json");
-            httpBase.setHeader("Content-type", "application/json");
-            httpBase.setEntity(new StringEntity(json));
+            httpBase.setHeader("Accept", headerAccept);
+            httpBase.setHeader("Content-type", headerContentType);
+            httpBase.setEntity(new StringEntity(body));
 
             String message = "Executing request " + httpBase.getRequestLine();
             logBoth(processId, LogType.INFO, message);
 
             String responseBody = client.execute(httpBase, RESPONSE_HANDLER);
-            return JSONUtils.getJSONObjectFromString(responseBody);
+            log.debug("------- response body -------");
+            log.debug(responseBody);
+            log.debug("------- response body -------");
+
+            return headerAccept.endsWith("json") ? JSONUtils.getJSONObjectFromString(responseBody) : null;
 
         } catch (IOException e) {
             String message = "IOException caught while executing request: " + httpBase.getRequestLine();
