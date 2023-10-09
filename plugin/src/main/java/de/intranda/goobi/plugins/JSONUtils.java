@@ -556,6 +556,41 @@ public class JSONUtils {
     }
 
     /**
+     * update the input JSONObject or JSONArray using records delivered by the input map
+     * 
+     * @param pathValueMap map between JSON paths that shall be updated and new values accordingly
+     * @param obj JSONObject or JSONArray
+     */
+    public static void updateJSONObjectOrArray(Map<String, String> pathValueMap, Object obj) {
+        if (obj instanceof JSONArray) {
+            updateJSONArray(pathValueMap, (JSONArray) obj);
+        } else if (obj instanceof JSONObject) {
+            updateJSONObject(pathValueMap, (JSONObject) obj);
+        } else {
+            // invalid obj
+            log.debug("The input Object can only be either JSONArray or JSONObject.");
+        }
+    }
+
+    /**
+     * update the input JSONObject or JSONArray by replacing the value found in the input JSON path with the input new value
+     * 
+     * @param jsonPath JSON path where the value shall be updated
+     * @param newValue new value to use
+     * @param obj JSONObject or JSONArray
+     */
+    public static void updateJSONObjectOrArray(String jsonPath, String newValue, Object obj) {
+        if (obj instanceof JSONArray) {
+            updateJSONArray(jsonPath, newValue, (JSONArray) obj);
+        } else if (obj instanceof JSONObject) {
+            updateJSONObject(jsonPath, newValue, (JSONObject) obj);
+        } else {
+            // invalid obj
+            log.debug("The input Object can only be either JSONArray or JSONObject.");
+        }
+    }
+
+    /**
      * update the input JSONObject using records delivered by the input map
      * 
      * @param pathValueMap map between JSON paths that shall be updated and new values accordingly
@@ -583,11 +618,38 @@ public class JSONUtils {
             return;
         }
 
-        // otherwise
+        // otherwise, update JSONObject or JSONArray according to the actual type
         int splitterIndex = jsonPath.indexOf(".");
         String step = jsonPath.substring(0, splitterIndex);
         String pathTail = jsonPath.substring(splitterIndex + 1);
-        updateJSONObject(pathTail, newValue, (JSONObject) jsonObject.get(step));
+        updateJSONObjectOrArray(pathTail, newValue, jsonObject.get(step));
+    }
+
+    /**
+     * update the input JSONArray using records delivered by the input map
+     * 
+     * @param pathValueMap map between JSON paths that shall be updated and new values accordingly
+     * @param jsonArray JSONArray
+     */
+    public static void updateJSONArray(Map<String, String> pathValueMap, JSONArray jsonArray) {
+        // update all elements in this JSONArray
+        for (int i = 0; i < jsonArray.size(); ++i) {
+            updateJSONObject(pathValueMap, (JSONObject) jsonArray.get(i));
+        }
+    }
+
+    /**
+     * update the input JSONArray by replacing the value found in the input JSON path with the input new value
+     * 
+     * @param jsonPath JSON path where the value shall be updated
+     * @param newValue new value to use
+     * @param jsonArray JSONArray
+     */
+    public static void updateJSONArray(String jsonPath, String newValue, JSONArray jsonArray) {
+        // update all elements in this JSONArray
+        for (int i = 0; i < jsonArray.size(); ++i) {
+            updateJSONObject(jsonPath, newValue, (JSONObject) jsonArray.get(i));
+        }
     }
 
     /**

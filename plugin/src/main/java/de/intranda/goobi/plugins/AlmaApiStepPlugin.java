@@ -314,7 +314,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                     }
 
                     // <update>
-                    JSONUtils.updateJSONObject(updateVariablePathValueMap, jsonObject);
+                    JSONUtils.updateJSONObjectOrArray(updateVariablePathValueMap, jsonObject);
                     boolean staticVariablesUpdated = AlmaApiCommand.updateStaticVariablesMap(updateVariableName, String.valueOf(jsonObject));
                     if (!staticVariablesUpdated) {
                         log.debug("static variables map was not successfully updated");
