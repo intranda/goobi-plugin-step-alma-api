@@ -104,8 +104,8 @@ public class AlmaApiCommand {
         }
 
         try {
-            List<HierarchicalConfiguration> targetConfigs = config.configurationsAt("update");
-            initializeUpdateFields(targetConfigs);
+            HierarchicalConfiguration updateConfig = config.configurationAt("update");
+            initializeUpdateFields(updateConfig);
 
         } catch (IllegalArgumentException e) {
             // merely used to make <update> optional, nothing special needs to be done here
@@ -321,24 +321,14 @@ public class AlmaApiCommand {
      * 
      * @param configs a list of HierarchicalConfiguration objects
      */
-    private void initializeUpdateFields(List<HierarchicalConfiguration> configs) {
+    private void initializeUpdateFields(HierarchicalConfiguration config) {
         updateVariablePathValueMap = new HashMap<>();
-        for (HierarchicalConfiguration config : configs) {
-            initializeUpdateVariableName(config);
-            String path = config.getString("@path");
-            String value = config.getString("@value");
+        updateVariableName = config.getString("@var");
+        List<HierarchicalConfiguration> entryConfigs = config.configurationsAt("entry");
+        for (HierarchicalConfiguration entryConfig : entryConfigs) {
+            String path = entryConfig.getString("@path");
+            String value = entryConfig.getString("@value");
             updateVariablePathValueMap.put(path, value);
-        }
-    }
-
-    /**
-     * initialize the variable name used to save the updated response JSONObject
-     * 
-     * @param config HierarchicalConfiguration
-     */
-    private void initializeUpdateVariableName(HierarchicalConfiguration config) {
-        if (StringUtils.isBlank(updateVariableName)) {
-            updateVariableName = config.getString("@var", "");
         }
     }
 

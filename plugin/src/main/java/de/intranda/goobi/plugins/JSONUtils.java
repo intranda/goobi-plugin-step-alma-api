@@ -562,6 +562,10 @@ public class JSONUtils {
      * @param obj JSONObject or JSONArray
      */
     public static void updateJSONObjectOrArray(Map<String, String> pathValueMap, Object obj) {
+        if (pathValueMap == null) {
+            // no need to update anything
+            return;
+        }
         if (obj instanceof JSONArray) {
             updateJSONArray(pathValueMap, (JSONArray) obj);
         } else if (obj instanceof JSONObject) {
@@ -597,6 +601,10 @@ public class JSONUtils {
      * @param jsonObject JSONObject
      */
     public static void updateJSONObject(Map<String, String> pathValueMap, JSONObject jsonObject) {
+        if (pathValueMap == null) {
+            // no need to update anything
+            return;
+        }
         for (Map.Entry<String, String> entry : pathValueMap.entrySet()) {
             String jsonPath = entry.getKey();
             String newValue = entry.getValue();
@@ -632,6 +640,10 @@ public class JSONUtils {
      * @param jsonArray JSONArray
      */
     public static void updateJSONArray(Map<String, String> pathValueMap, JSONArray jsonArray) {
+        if (pathValueMap == null) {
+            // no need to update anything
+            return;
+        }
         // update all elements in this JSONArray
         for (int i = 0; i < jsonArray.size(); ++i) {
             updateJSONObject(pathValueMap, (JSONObject) jsonArray.get(i));
