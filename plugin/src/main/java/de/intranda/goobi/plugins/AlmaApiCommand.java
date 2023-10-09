@@ -64,10 +64,13 @@ public class AlmaApiCommand {
     @Getter
     private Map<String, String> targetVariablePathMap;
     @Getter
+    private String updateVariableName;
+    @Getter
+    private Map<String, String> updateVariablePathValueMap;
+    @Getter
     private String headerAccept;
     @Getter
     private String headerContentType;
-    @Getter
     private String bodyValue;
 
     public AlmaApiCommand(HierarchicalConfiguration config) {
@@ -100,10 +103,19 @@ public class AlmaApiCommand {
             // merely used to make <target> optional, nothing special needs to be done here
         }
 
+        try {
+            List<HierarchicalConfiguration> targetConfigs = config.configurationsAt("update");
+            initializeUpdateFields(targetConfigs);
+
+        } catch (IllegalArgumentException e) {
+            // merely used to make <update> optional, nothing special needs to be done here
+        }
+
         // initialize body settings for current command if it is configured
         try {
             HierarchicalConfiguration bodyConfig = config.configurationAt("body");
-            initializeBodyValue(bodyConfig);
+            bodyValue = getBodyValue(bodyConfig);
+            log.debug("bodyValue = " + bodyValue);
 
         } catch (IllegalArgumentException e) {
             headerContentType = "application/json";
@@ -305,16 +317,60 @@ public class AlmaApiCommand {
     }
 
     /**
-     * initialize the value of request body
+     * initialize all fields needed for saving updated response JSONObjects
+     * 
+     * @param configs a list of HierarchicalConfiguration objects
+     */
+    private void initializeUpdateFields(List<HierarchicalConfiguration> configs) {
+        updateVariablePathValueMap = new HashMap<>();
+        for (HierarchicalConfiguration config : configs) {
+            initializeUpdateVariableName(config);
+            String path = config.getString("@path");
+            String value = config.getString("@value");
+            updateVariablePathValueMap.put(path, value);
+        }
+    }
+
+    /**
+     * initialize the variable name used to save the updated response JSONObject
      * 
      * @param config HierarchicalConfiguration
      */
-    private void initializeBodyValue(HierarchicalConfiguration config) {
-        String filePath = config.getString("@src");
-        String fileContent = readFileContent(filePath);
-        log.debug("------- FILE CONTENT -------");
-        log.debug(fileContent);
-        bodyValue = StringUtils.isBlank(fileContent) ? "" : fileContent;
+    private void initializeUpdateVariableName(HierarchicalConfiguration config) {
+        if (StringUtils.isBlank(updateVariableName)) {
+            updateVariableName = config.getString("@var", "");
+        }
+    }
+
+    /**
+     * used to initialize the value of request body
+     * 
+     * @param config HierarchicalConfiguration
+     * @return content of a file if @src is configured, otherwise just the configured @value
+     */
+    private String getBodyValue(HierarchicalConfiguration config) {
+        // bodyValue can be content of a file if @src is configured, OR variable OR plain text value
+        // check if it should be content of a file
+        String filePath = config.getString("@src", "");
+        if (StringUtils.isNotBlank(filePath)) {
+            String fileContent = readFileContent(filePath);
+            log.debug("------- FILE CONTENT -------");
+            log.debug(fileContent);
+            return StringUtils.isBlank(fileContent) ? "" : fileContent;
+        }
+
+        // otherwise just return the configured value, since variables will be replaced later when @Getter is called
+        return config.getString("@value", "");
+    }
+
+    /**
+     * used to get the value of the request body
+     * 
+     * @return request body value with all of its variables being replaced properly
+     */
+    public String getBodyValue() {
+        String key = bodyValue.startsWith("{$") || bodyValue.startsWith("$") ? wrapKey(bodyValue) : bodyValue;
+        return getVariableValues(key).get(0);
     }
 
     /**

@@ -265,6 +265,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             String headerAccept = command.getHeaderAccept(); // default application/json, unless configured
             String headerContentType = command.getHeaderContentType(); // default application/json, unless in <body> configured
             String bodyValue = command.getBodyValue();
+            log.debug("bodyValue = " + bodyValue);
 
             Map<String, String> parameters = command.getParametersMap();
             List<String> endpoints = command.getEndpoints();
@@ -274,6 +275,9 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             String filterFallbackKey = command.getFilterFallbackKey();
             String filterValue = command.getFilterValue();
             String filterAlternativeOption = command.getFilterAlternativeOption();
+
+            String updateVariableName = command.getUpdateVariableName();
+            Map<String, String> updateVariablePathValueMap = command.getUpdateVariablePathValueMap();
 
             for (String endpoint : endpoints) {
                 String requestUrl = createRequestUrl(endpoint, parameters);
@@ -286,6 +290,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                     log.debug(jsonObject.toString());
                     log.debug("------- jsonObject -------");
                     
+                    // <filter> and <target>
                     Map<String, List<Object>> filteredTargetsMap = JSONUtils.getFilteredValuesFromSource(targetVariablePathMap, filterKey,
                             filterFallbackKey, filterValue, filterAlternativeOption, jsonObject);
 
@@ -306,6 +311,13 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                             log.debug("static variables map was not successfully updated");
                         }
 
+                    }
+
+                    // <update>
+                    JSONUtils.updateJSONObject(updateVariablePathValueMap, jsonObject);
+                    boolean staticVariablesUpdated = AlmaApiCommand.updateStaticVariablesMap(updateVariableName, String.valueOf(jsonObject));
+                    if (!staticVariablesUpdated) {
+                        log.debug("static variables map was not successfully updated");
                     }
                 }
             }

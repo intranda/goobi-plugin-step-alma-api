@@ -556,6 +556,41 @@ public class JSONUtils {
     }
 
     /**
+     * update the input JSONObject using records delivered by the input map
+     * 
+     * @param pathValueMap map between JSON paths that shall be updated and new values accordingly
+     * @param jsonObject JSONObject
+     */
+    public static void updateJSONObject(Map<String, String> pathValueMap, JSONObject jsonObject) {
+        for (Map.Entry<String, String> entry : pathValueMap.entrySet()) {
+            String jsonPath = entry.getKey();
+            String newValue = entry.getValue();
+            updateJSONObject(jsonPath, newValue, jsonObject);
+        }
+    }
+
+    /**
+     * update the input JSONObject by replacing the value found in the input JSON path with the input new value
+     * 
+     * @param jsonPath JSON path where the value shall be updated
+     * @param newValue new value to use
+     * @param jsonObject JSONObject
+     */
+    public static void updateJSONObject(String jsonPath, String newValue, JSONObject jsonObject) {
+        // base case: jsonPath has no children any more
+        if (!jsonPath.contains(".")) {
+            jsonObject.put(jsonPath, newValue);
+            return;
+        }
+
+        // otherwise
+        int splitterIndex = jsonPath.indexOf(".");
+        String step = jsonPath.substring(0, splitterIndex);
+        String pathTail = jsonPath.substring(splitterIndex + 1);
+        updateJSONObject(pathTail, newValue, (JSONObject) jsonObject.get(step));
+    }
+
+    /**
      * get the chopped tail of the input JSON path
      * 
      * @param path JSON path string
