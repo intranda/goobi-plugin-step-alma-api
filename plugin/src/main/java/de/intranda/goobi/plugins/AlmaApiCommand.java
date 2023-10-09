@@ -36,8 +36,6 @@ import java.util.regex.Pattern;
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.lang3.StringUtils;
 
-import de.sub.goobi.helper.StorageProvider;
-import de.sub.goobi.helper.StorageProviderInterface;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 
@@ -49,8 +47,6 @@ public class AlmaApiCommand {
     private static final Pattern VARIABLE_PATTERN = Pattern.compile("(\\{\\$[^\\{\\}]*\\})");
     // static variables created before creations of all commands or created by previous commands, shared by all commands
     private static final Map<String, List<String>> STATIC_VARIABLES_MAP = new HashMap<>();
-
-    private static final StorageProviderInterface storageProvider = StorageProvider.getInstance();
     @Getter
     private List<String> endpoints;
     @Getter
@@ -78,8 +74,8 @@ public class AlmaApiCommand {
         String rawEndpoint = config.getString("@endpoint");
         initializeEndpoints(rawEndpoint, config);
         method = config.getString("@method");
-        headerAccept = wrapHeaderAccept(config.getString("@accept", "json"));
-        log.debug("headerAccept = " + headerAccept);
+        headerAccept = wrapHeader(config.getString("@accept", "json"));
+        headerContentType = wrapHeader(config.getString("@content-type", "json"));
 
         List<HierarchicalConfiguration> parameterConfigs = config.configurationsAt("parameter");
         for (HierarchicalConfiguration parameterConfig : parameterConfigs) {
@@ -107,7 +103,8 @@ public class AlmaApiCommand {
         // initialize body settings for current command if it is configured
         try {
             HierarchicalConfiguration bodyConfig = config.configurationAt("body");
-            initializeBodyFields(bodyConfig);
+            initializeBodyValue(bodyConfig);
+
         } catch (IllegalArgumentException e) {
             headerContentType = "application/json";
             bodyValue = "";
@@ -115,6 +112,9 @@ public class AlmaApiCommand {
 
     }
 
+    /**
+     * update all endpoints via replacing all static variables in them
+     */
     public void updateAllEndpoints() {
         // we only have to replace static variables here one by one
         for (String endpoint : endpoints) {
@@ -223,20 +223,22 @@ public class AlmaApiCommand {
         return results;
     }
 
-    private String wrapHeaderAccept(String str) {
-        final String headerAcceptHead = "application/";
-        //        if (StringUtils.isBlank(str)) {
-        //            // use default setting application/json
-        //            return headerAcceptHead + "json";
-        //        }
+    /**
+     * wrap header with the prefix application/
+     * 
+     * @param str header setting
+     * @return header setting wrapped properly
+     */
+    private String wrapHeader(String str) {
+        final String headerPrefix = "application/";
 
         String[] parts = str.split("/");
-        String acceptType = parts[parts.length - 1].toLowerCase();
-        if ("xml".equals(acceptType) || "json".equals(acceptType)) {
-            return headerAcceptHead + acceptType;
+        String setting = parts.length > 0 ? parts[parts.length - 1].toLowerCase() : "json";
+        if ("xml".equals(setting) || "json".equals(setting)) {
+            return headerPrefix + setting;
         } else {
-            log.debug("Unknown accept type: " + acceptType + ". Using JSON instead.");
-            return headerAcceptHead + "json";
+            log.debug("Unknown setting: " + setting + ". Using json instead.");
+            return headerPrefix + "json";
         }
     }
 
@@ -302,15 +304,12 @@ public class AlmaApiCommand {
         }
     }
 
-    private void initializeBodyFields(HierarchicalConfiguration config) {
-        String type = config.getString("@type").toLowerCase();
-        if ("xml".equals(type) || "json".equals(type)) {
-            headerContentType = "application/" + type;
-        } else {
-            log.debug("Unknown body type: '" + type + "'. Using JSON instead.");
-            headerContentType = "application/json";
-        }
-
+    /**
+     * initialize the value of request body
+     * 
+     * @param config HierarchicalConfiguration
+     */
+    private void initializeBodyValue(HierarchicalConfiguration config) {
         String filePath = config.getString("@src");
         String fileContent = readFileContent(filePath);
         log.debug("------- FILE CONTENT -------");
@@ -318,6 +317,12 @@ public class AlmaApiCommand {
         bodyValue = StringUtils.isBlank(fileContent) ? "" : fileContent;
     }
 
+    /**
+     * read contents from a file
+     * 
+     * @param path absolute path as String of the file
+     * @return contents of the file as String
+     */
     private String readFileContent(String path) {
         log.debug("reading file content from: " + path);
 
@@ -333,19 +338,11 @@ public class AlmaApiCommand {
             return contentBuilder.toString();
 
         } catch (IOException e) {
-            // TODO Auto-generated catch block
+            log.debug("Failed to read contents from " + path);
             e.printStackTrace();
+            return "";
         }
 
-        //        try {
-        //            FileInputStream inputStream = storageProvider.newInputStream(Path.of(path));
-        //
-        //        } catch (IOException e) {
-        //            // TODO Auto-generated catch block
-        //            e.printStackTrace();
-        //        }
-
-        return "";
     }
 
     /**

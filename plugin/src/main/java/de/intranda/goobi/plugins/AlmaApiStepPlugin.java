@@ -29,7 +29,6 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.configuration.SubnodeConfiguration;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
@@ -91,6 +90,9 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
     // create a custom response handler
     private static final ResponseHandler<String> RESPONSE_HANDLER = response -> {
+        log.debug("------- STATUS --- LINE -------");
+        log.debug(response.getStatusLine());
+        log.debug("------- STATUS --- LINE -------");
         HttpEntity entity = response.getEntity();
         return entity != null ? EntityUtils.toString(entity) : null;
     };
@@ -277,9 +279,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                 String requestUrl = createRequestUrl(endpoint, parameters);
                 log.debug("requestUrl = " + requestUrl);
 
-                // run the command
-                JSONObject jsonObject = StringUtils.isBlank(headerContentType) ? runCommand(method, headerAccept, headerContentType, requestUrl)
-                        : runCommand(method, headerAccept, headerContentType, requestUrl, bodyValue);
+                JSONObject jsonObject = runCommand(method, headerAccept, headerContentType, requestUrl, bodyValue);
 
                 if (jsonObject != null) {
                     log.debug("------- jsonObject -------");
@@ -566,20 +566,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * @param headerAccept value for the header parameter Accept
      * @param headerContentType value for the header parameter Content-type
      * @param url request url
-     * @return response as JSONObject, or null if any error occurred
-     */
-    private JSONObject runCommand(String method, String headerAccept, String headerContentType, String url) {
-        return runCommand(method, headerAccept, headerContentType, url, "");
-    }
-
-    /**
-     * run the command
-     * 
-     * @param method REST method
-     * @param headerAccept value for the header parameter Accept
-     * @param headerContentType value for the header parameter Content-type
-     * @param url request url
-     * @param body JSON or XML body that is to be sent by request, NOT IN USE YET
+     * @param body JSON or XML body that is to be sent by request,
      * @return response as JSONObject, or null if any error occurred
      */
     private JSONObject runCommand(String method, String headerAccept, String headerContentType, String url, String body) {
