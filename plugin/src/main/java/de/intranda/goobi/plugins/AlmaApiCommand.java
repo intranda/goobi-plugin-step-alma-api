@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.lang3.StringUtils;
@@ -374,10 +375,10 @@ public class AlmaApiCommand {
      */
     private String readFileContent(String path) {
         log.debug("reading file content from: " + path);
-
         StringBuilder contentBuilder = new StringBuilder();
-        Path filePath = Path.of(path);
+
         try {
+            Path filePath = getContentFilePath(path);
             BufferedReader reader = Files.newBufferedReader(filePath);
             String line;
             while ((line = reader.readLine()) != null) {
@@ -392,6 +393,26 @@ public class AlmaApiCommand {
             return "";
         }
 
+    }
+
+    /**
+     * get the path of the content file that shall be read
+     * 
+     * @param path path string of a file or a directory containing the file
+     * @return Path of the content file that shall be read, which will be its first file if the input path is a directory
+     * @throws IOException
+     */
+    private Path getContentFilePath(String path) throws IOException {
+        Path filePath = Path.of(path);
+        // if filePath is a directory, return the path of its first file
+        if (Files.isDirectory(filePath)) {
+            return Files.list(filePath)
+                    .filter(file -> !Files.isDirectory(file))
+                    .collect(Collectors.toList())
+                    .get(0);
+        }
+
+        return filePath;
     }
 
     /**
