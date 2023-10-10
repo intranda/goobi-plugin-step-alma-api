@@ -343,9 +343,10 @@ public class AlmaApiCommand {
      */
     private String getBodyValue(HierarchicalConfiguration config) {
         // bodyValue can be content of a file if @src is configured, OR variable OR plain text value
-        // check if it should be content of a file
-        String filePath = config.getString("@src", "");
+        // @src can be a variable or a plain string
+        String filePath = getMaybeVariableValue(config.getString("@src", ""));
         String wrapper = config.getString("@wrapper", "");
+        // check if it should be content of a file
         if (StringUtils.isNotBlank(filePath)) {
             String fileContent = readFileContent(filePath);
             log.debug("------- FILE CONTENT -------");
@@ -363,7 +364,17 @@ public class AlmaApiCommand {
      * @return request body value with all of its variables being replaced properly
      */
     public String getBodyValue() {
-        String key = bodyValue.startsWith("{$") || bodyValue.startsWith("$") ? wrapKey(bodyValue) : bodyValue;
+        return getMaybeVariableValue(bodyValue);
+    }
+
+    /**
+     * get value represented by the input string s, which MAYBE a variable
+     * 
+     * @param s String that may be plain text or variable
+     * @return s itself if s is not a variable, otherwise the value of this variable
+     */
+    private String getMaybeVariableValue(String s) {
+        String key = s.startsWith("{$") || s.startsWith("$") ? wrapKey(s) : s;
         return getVariableValues(key).get(0);
     }
 
