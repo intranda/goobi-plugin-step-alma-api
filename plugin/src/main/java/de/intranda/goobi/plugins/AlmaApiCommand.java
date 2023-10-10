@@ -49,6 +49,8 @@ public class AlmaApiCommand {
     private static final Pattern VARIABLE_PATTERN = Pattern.compile("(\\{\\$[^\\{\\}]*\\})");
     // pattern that matches the xml header <?xml ... ?>
     private static final String XML_HEADER_PATTERN = "<\\?.*\\?>";
+    // pattern that matches the xml comments <!-- ... -->
+    private static final String XML_COMMENT_PATTERN = "<!--[\\s\\S]*?-->";
     // static variables created before creations of all commands or created by previous commands, shared by all commands
     private static final Map<String, List<String>> STATIC_VARIABLES_MAP = new HashMap<>();
     @Getter
@@ -349,7 +351,9 @@ public class AlmaApiCommand {
         // check if it should be content of a file
         if (StringUtils.isNotBlank(filePath)) {
             String fileContent = readFileContent(filePath);
-            return wrapBodyValue(fileContent, wrapper, headerContentType);
+            // remove all comments in the XML file, since otherwise it will regarded as NOT well-formed
+            String fileContentWithoutComments = fileContent.replaceAll(XML_COMMENT_PATTERN, "");
+            return wrapBodyValue(fileContentWithoutComments, wrapper, headerContentType);
         }
 
         // otherwise just return the configured value, since variables will be replaced later when @Getter is called
