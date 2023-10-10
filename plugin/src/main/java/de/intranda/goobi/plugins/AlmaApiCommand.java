@@ -45,6 +45,8 @@ public class AlmaApiCommand {
     private static final Pattern PATTERN = Pattern.compile("(\\{[^\\{\\}]*\\})");
     // pattern that matches every variable block in the format of {$___}
     private static final Pattern VARIABLE_PATTERN = Pattern.compile("(\\{\\$[^\\{\\}]*\\})");
+    // pattern that matches the xml header <?xml ... ?>
+    private static final String XML_HEADER_PATTERN = "<\\?.*\\?>";
     // static variables created before creations of all commands or created by previous commands, shared by all commands
     private static final Map<String, List<String>> STATIC_VARIABLES_MAP = new HashMap<>();
     @Getter
@@ -319,7 +321,7 @@ public class AlmaApiCommand {
     /**
      * initialize all fields needed for saving updated response JSONObjects
      * 
-     * @param configs a list of HierarchicalConfiguration objects
+     * @param config HierarchicalConfiguration
      */
     private void initializeUpdateFields(HierarchicalConfiguration config) {
         updateVariablePathValueMap = new HashMap<>();
@@ -342,11 +344,12 @@ public class AlmaApiCommand {
         // bodyValue can be content of a file if @src is configured, OR variable OR plain text value
         // check if it should be content of a file
         String filePath = config.getString("@src", "");
+        String wrapper = config.getString("@wrapper", "");
         if (StringUtils.isNotBlank(filePath)) {
             String fileContent = readFileContent(filePath);
             log.debug("------- FILE CONTENT -------");
             log.debug(fileContent);
-            return StringUtils.isBlank(fileContent) ? "" : fileContent;
+            return wrapBodyValue(fileContent, wrapper, headerContentType);
         }
 
         // otherwise just return the configured value, since variables will be replaced later when @Getter is called
@@ -389,6 +392,102 @@ public class AlmaApiCommand {
             return "";
         }
 
+    }
+
+    /**
+     * wrap the request body with the input wrapper
+     * 
+     * @param content string value that is to be wrapped
+     * @param wrapper tokens that shall be wrapped around content
+     * @param type type of the content, options are xml | json, any other input will return the content itself
+     * @return content wrapped by wrapper
+     */
+    private String wrapBodyValue(String content, String wrapper, String type) {
+        if (StringUtils.isBlank(wrapper)) {
+            return content;
+        }
+
+        String[] wrappers = wrapper.split(" ");
+
+        if (type.endsWith("json")) {
+            return wrapBodyValueJSON(content, wrappers);
+        }
+
+        if (type.endsWith("xml")) {
+            return wrapBodyValueXML(content, wrappers);
+        }
+
+        // unknown type
+        return content;
+    }
+
+    /**
+     * wrap the request body of type JSON with the input wrappers
+     * 
+     * @param content string value that is to be wrapped
+     * @param wrappers an array of wrappers that shall be wrapped around content
+     * @return content wrapped by wrappers
+     */
+    private String wrapBodyValueJSON(String content, String[] wrappers) {
+        String result = content;
+        for (int i = wrappers.length - 1; i >= 0; --i) {
+            result = wrapBodyValueJSON(result, wrappers[i]);
+        }
+
+        return result;
+    }
+
+    /**
+     * wrap the request body of type JSON with the input wrappers
+     * 
+     * @param content string value that is to be wrapped
+     * @param wrapper the wrapper that shall be applied
+     * @return content wrapped by wrapper
+     */
+    private String wrapBodyValueJSON(String content, String wrapper) {
+        StringBuilder sb = new StringBuilder("{\"");
+        sb.append(wrapper)
+                .append("\": ")
+                .append(content)
+                .append("}");
+
+        return sb.toString();
+    }
+
+    /**
+     * wrap the request body of type XML with the input wrappers
+     * 
+     * @param content string value that is to be wrapped
+     * @param wrappers an array of wrappers that shall be wrapped around content
+     * @return content wrapped by wrappers
+     */
+    private String wrapBodyValueXML(String content, String[] wrappers) {
+        // remove the header line <?xml ... ?>
+        String result = content.replaceAll(XML_HEADER_PATTERN, "");
+        for (int i = wrappers.length - 1; i >= 0; --i) {
+            result = wrapBodyValueXML(result, wrappers[i]);
+        }
+
+        return result;
+    }
+
+    /**
+     * wrap the request body of type XML with the input wrappers
+     * 
+     * @param content string value that is to be wrapped
+     * @param wrapper the wrapper that shall be applied
+     * @return content wrapped by wrapper
+     */
+    private String wrapBodyValueXML(String content, String wrapper) {
+        StringBuilder sb = new StringBuilder("<");
+        sb.append(wrapper)
+                .append(">")
+                .append(content)
+                .append("</")
+                .append(wrapper)
+                .append(">");
+
+        return sb.toString();
     }
 
     /**
