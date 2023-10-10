@@ -33,6 +33,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.lang3.StringUtils;
@@ -42,9 +43,9 @@ import lombok.extern.log4j.Log4j2;
 
 @Log4j2
 public class AlmaApiCommand {
-    // pattern that matches every block enclosed by a pair of {}
-    private static final Pattern PATTERN = Pattern.compile("(\\{[^\\{\\}]*\\})");
-    // pattern that matches every variable block in the format of {$___}
+    // pattern that matches every block enclosed by a pair of {} // NOSONAR
+    private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("(\\{[^\\{\\}]*\\})");
+    // pattern that matches every variable block in the format of {$___} // NOSONAR
     private static final Pattern VARIABLE_PATTERN = Pattern.compile("(\\{\\$[^\\{\\}]*\\})");
     // pattern that matches the xml header <?xml ... ?>
     private static final String XML_HEADER_PATTERN = "<\\?.*\\?>";
@@ -118,7 +119,6 @@ public class AlmaApiCommand {
         try {
             HierarchicalConfiguration bodyConfig = config.configurationAt("body");
             bodyValue = getBodyValue(bodyConfig);
-            log.debug("bodyValue = " + bodyValue);
 
         } catch (IllegalArgumentException e) {
             headerContentType = "application/json";
@@ -349,8 +349,6 @@ public class AlmaApiCommand {
         // check if it should be content of a file
         if (StringUtils.isNotBlank(filePath)) {
             String fileContent = readFileContent(filePath);
-            log.debug("------- FILE CONTENT -------");
-            log.debug(fileContent);
             return wrapBodyValue(fileContent, wrapper, headerContentType);
         }
 
@@ -385,12 +383,10 @@ public class AlmaApiCommand {
      * @return contents of the file as String
      */
     private String readFileContent(String path) {
-        log.debug("reading file content from: " + path);
+        log.debug("Reading file content from: " + path);
         StringBuilder contentBuilder = new StringBuilder();
 
-        try {
-            Path filePath = getContentFilePath(path);
-            BufferedReader reader = Files.newBufferedReader(filePath);
+        try (BufferedReader reader = Files.newBufferedReader(getContentFilePath(path))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 contentBuilder.append(line + System.lineSeparator());
@@ -417,10 +413,11 @@ public class AlmaApiCommand {
         Path filePath = Path.of(path);
         // if filePath is a directory, return the path of its first file
         if (Files.isDirectory(filePath)) {
-            return Files.list(filePath)
-                    .filter(file -> !Files.isDirectory(file))
-                    .collect(Collectors.toList())
-                    .get(0);
+            try (Stream<Path> stream = Files.list(filePath)) {
+                return stream.filter(file -> !Files.isDirectory(file))
+                        .collect(Collectors.toList())
+                        .get(0);
+            }
         }
 
         return filePath;
@@ -552,8 +549,8 @@ public class AlmaApiCommand {
      */
     private Map<String, String> getPlaceholdersMap(String line) {
         Map<String, String> placeholdersMap = new HashMap<>();
-        // get a list of all placeholders enclosed in {}
-        Matcher matcher = PATTERN.matcher(line);
+        // get a list of all placeholders enclosed in {} // NOSONAR
+        Matcher matcher = PLACEHOLDER_PATTERN.matcher(line);
         while (matcher.find()) {
             String matchedText = matcher.group();
             String placeholderName = matchedText.replaceAll("[\\{\\}]", "");
@@ -600,7 +597,7 @@ public class AlmaApiCommand {
         }
 
         String wrappedKey = wrapKey(variable);
-        log.debug("updating variable: " + wrappedKey);
+        log.debug("Updating variable: " + wrappedKey);
 
         if (STATIC_VARIABLES_MAP.containsKey(wrappedKey)) {
             log.debug("The variable '" + variable + "' already exists. Updating...");

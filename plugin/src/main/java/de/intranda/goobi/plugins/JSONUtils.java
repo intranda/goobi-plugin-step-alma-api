@@ -37,6 +37,10 @@ import lombok.extern.log4j.Log4j2;
 public class JSONUtils {
     private static final JSONParser JSON_PARSER = new JSONParser();
 
+    private JSONUtils() {
+        // hide the implicit one
+    }
+
     /**
      * parse the input JSON string to get a JSONObject
      * 
@@ -672,10 +676,10 @@ public class JSONUtils {
      * @return the chopped tail of path
      */
     private static String getPathTail(String path, String heading) {
-        log.debug("getting path tail from: '" + path + "' where heading = " + heading);
+        log.debug("Getting path tail from: '" + path + "' where heading = " + heading);
 
         if (StringUtils.isBlank(heading)) {
-            log.debug("heading is blank, returning path...");
+            log.debug("Heading is blank, returning the whole path instead...");
             return path;
         }
 
