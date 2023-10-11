@@ -174,12 +174,12 @@
             <target var="MMS_ID" path="mms_id" />
         </command>
         
-        <command method="post" accept="xml" content-type="xml" endpoint="/almaws/v1/bibs/{mms_id}/portfolios">
+        <command method="post" accept="json" content-type="xml" endpoint="/almaws/v1/bibs/{mms_id}/portfolios">
             <mms_id>{$MMS_ID}</mms_id>
             <!-- use content of the file as request body, no wrapper needed -->
             <body src="{$PORTFOLIO_PATH}" wrapper="" />
             <!-- create a new variable to hold the value on this JSON path  -->
-            <target var="PORTFOLIO_ID" path="electronic_collection.id.value" />         
+            <target var="PORTFOLIO_ID" path="id" />         
         </command>       
         
         <!-- save values of variables as process properties  -->
