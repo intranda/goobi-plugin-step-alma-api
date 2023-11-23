@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.configuration.SubnodeConfiguration;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
@@ -126,7 +127,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             String saveType = saveConfig.getString("@type");
             String saveName = saveConfig.getString("@name");
             String saveValue = saveConfig.getString("@value");
-            String saveChoice = saveConfig.getString("@choice", "all");
+            String saveChoice = saveConfig.getString("@choice", "");
             boolean overwrite = saveConfig.getBoolean("@overwrite", false);
             entriesToSaveList.add(new EntryToSaveTemplate(saveType, saveName, saveValue, saveChoice, overwrite));
         }
@@ -363,6 +364,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
             // determine property value according to the configured choice
             String propertyValue = getEntryValue(propertyValues, propertyTemplate.getChoice());
+            log.debug("property value to be saved: " + propertyValue);
 
             // get the Processproperty object
             Processproperty propertyObject = getProcesspropertyObject(propertyName, propertyTemplate.isOverwrite());
@@ -506,7 +508,9 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * get the entry value that should be saved
      * 
      * @param entryValues the list of entry values to choose from
-     * @param choice options are all | first | last | random, DEFAULT all
+     * @param choice options are first | last | random, and if none of these three is configured, then all values will be combined, where the
+     *            delimiter depends on the input choice. If the input choice starts with a colon and it has more than one character, then its value
+     *            without the heading colon will be used as the delimiter. Otherwise, a comma will be used by default.
      * @return property value that is to be saved
      */
     private String getEntryValue(List<String> entryValues, String choice) {
@@ -521,14 +525,31 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                 // combine all values
         }
 
+        String delimiter = getDelimiterFromChoice(choice);
+        log.debug("using delimiter = " + delimiter);
+
         StringBuilder sb = new StringBuilder();
         for (String entryValue : entryValues) {
-            sb.append(entryValue).append(", ");
+            sb.append(entryValue).append(delimiter);
         }
 
         String value = sb.toString();
 
-        return value.substring(0, value.lastIndexOf(", "));
+        return value.substring(0, value.lastIndexOf(delimiter));
+    }
+
+    /**
+     * get delimiter according to the input choice
+     * 
+     * @param choice
+     * @return if choice starts with a colon and has length > 1 then the delimiter is the input choice without the heading colon; otherwise a comma
+     */
+    private String getDelimiterFromChoice(String choice) {
+        if (StringUtils.isNotBlank(choice) && choice.startsWith(":") && choice.length() > 1) {
+            return choice.substring(1);
+        }
+        
+        return ", ";
     }
 
     /**
