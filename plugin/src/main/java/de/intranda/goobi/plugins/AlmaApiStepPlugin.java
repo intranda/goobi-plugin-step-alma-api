@@ -21,6 +21,7 @@ package de.intranda.goobi.plugins;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -299,11 +300,22 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                     if (filteredValues.isEmpty()) {
                         log.debug("no match found");
                     }
-
+                    
                     // save the filteredValues
-                    List<String> targetValues = filteredValues.stream()
-                            .map(String::valueOf)
-                            .collect(Collectors.toList());
+                    List<String> targetValues = new ArrayList<>();
+                    filteredValues.stream()
+                            .forEach(obj -> {
+                                if (obj.getClass().isArray() || obj instanceof Collection) {
+                                    // obj is a collection, flatten it and add all of its values as strings into targetValues
+                                    List<Object> objectValues = new ArrayList<>((Collection<?>) obj);
+                                    targetValues.addAll(objectValues.stream()
+                                            .map(String::valueOf)
+                                            .collect(Collectors.toList()));
+                                } else {
+                                    // obj is not a collection, simply add itself
+                                    targetValues.add(String.valueOf(obj));
+                                }
+                            });
 
                     boolean staticVariablesUpdated = AlmaApiCommand.updateStaticVariablesMap(targetVariable, targetValues);
                     if (!staticVariablesUpdated) {
