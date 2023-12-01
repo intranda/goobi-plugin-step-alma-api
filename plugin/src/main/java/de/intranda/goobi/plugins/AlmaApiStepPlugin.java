@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.stream.Collectors;
 
@@ -304,6 +305,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                     // save the filteredValues
                     List<String> targetValues = new ArrayList<>();
                     filteredValues.stream()
+                            .filter(Objects::nonNull)
                             .forEach(obj -> {
                                 if (obj.getClass().isArray() || obj instanceof Collection) {
                                     // obj is a collection, flatten it and add all of its values as strings into targetValues
