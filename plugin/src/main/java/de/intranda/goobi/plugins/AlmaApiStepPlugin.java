@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
-import java.util.stream.Collectors;
 
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.configuration.SubnodeConfiguration;
@@ -35,7 +34,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
-import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPatch;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
@@ -60,6 +58,7 @@ import de.sub.goobi.helper.Helper;
 import de.sub.goobi.helper.VariableReplacer;
 import de.sub.goobi.helper.exceptions.SwapException;
 import de.sub.goobi.persistence.managers.PropertyManager;
+import io.goobi.workflow.api.connection.HttpUtils;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import net.xeoh.plugins.base.annotations.PluginImplementation;
@@ -71,7 +70,7 @@ import ugh.dl.Prefs;
 import ugh.exceptions.MetadataTypeNotAllowedException;
 import ugh.exceptions.PreferencesException;
 import ugh.exceptions.ReadException;
-import ugh.exceptions.WriteException;
+import ugh.exceptions.UGHException;
 
 @PluginImplementation
 @Log4j2
@@ -135,7 +134,15 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             String saveValue = saveConfig.getString("@value");
             String saveChoice = saveConfig.getString("@choice", "");
             boolean overwrite = saveConfig.getBoolean("@overwrite", false);
-            entriesToSaveList.add(new EntryToSaveTemplate(saveType, saveName, saveValue, saveChoice, overwrite));
+            Map<String, String> groupMetadataMap = null;
+            if ("group".equals(saveType)) {
+                groupMetadataMap = new HashMap<>();
+                List<HierarchicalConfiguration> fields = saveConfig.configurationsAt("/entry");
+                for (HierarchicalConfiguration hc : fields) {
+                    groupMetadataMap.put(hc.getString("@name"), hc.getString("@path"));
+                }
+            }
+            entriesToSaveList.add(new EntryToSaveTemplate(saveType, saveName, saveValue, saveChoice, overwrite, groupMetadataMap));
         }
 
         String message = "AlmaApi step plugin initialized.";
@@ -188,13 +195,11 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         } catch (ReadException | IOException | SwapException e) {
             String message = "Failed to read the metadata file.";
             logBoth(processId, LogType.ERROR, message);
-            e.printStackTrace();
             return "";
 
         } catch (PreferencesException e) {
             String message = "PreferencesException caught while trying to get the digital document.";
             logBoth(processId, LogType.ERROR, message);
-            e.printStackTrace();
             return "";
         }
     }
@@ -276,7 +281,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
             Map<String, String> parameters = command.getParametersMap();
             List<String> endpoints = command.getEndpoints();
-            Map<String, String> targetVariablePathMap = command.getTargetVariablePathMap();
+            List<Target> targetVariablePathList = command.getTargets();
 
             String filterKey = command.getFilterKey();
             String filterFallbackKey = command.getFilterFallbackKey();
@@ -296,7 +301,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
                 // jsonObject is not null, process it
                 // <filter> and <target>
-                Map<String, List<Object>> filteredTargetsMap = JSONUtils.getFilteredValuesFromSource(targetVariablePathMap, filterKey,
+                Map<String, List<Object>> filteredTargetsMap = JSONUtils.getFilteredValuesFromSource(targetVariablePathList, filterKey,
                         filterFallbackKey, filterValue, filterAlternativeOption, jsonObject);
 
                 for (Map.Entry<String, List<Object>> filteredTargets : filteredTargetsMap.entrySet()) {
@@ -305,21 +310,16 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                     if (filteredValues.isEmpty()) {
                         log.debug("no match found");
                     }
-
                     // save the filteredValues
-                    List<String> targetValues = new ArrayList<>();
+                    List<Object> targetValues = new ArrayList<>();
                     filteredValues.stream()
                             .filter(Objects::nonNull)
                             .forEach(obj -> {
                                 if (obj.getClass().isArray() || obj instanceof Collection) {
-                                    // obj is a collection, flatten it and add all of its values as strings into targetValues
                                     List<Object> objectValues = new ArrayList<>((Collection<?>) obj);
-                                    targetValues.addAll(objectValues.stream()
-                                            .map(String::valueOf)
-                                            .collect(Collectors.toList()));
+                                    targetValues.addAll(objectValues);
                                 } else {
-                                    // obj is not a collection, simply add itself
-                                    targetValues.add(String.valueOf(obj));
+                                    targetValues.add(obj);
                                 }
                             });
 
@@ -331,7 +331,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
                 // <update>
                 JSONUtils.updateJSONObjectOrArray(updateVariablePathValueMap, jsonObject); // <- jsonObject will be possibly modified here
-                boolean staticVariablesUpdated = AlmaApiCommand.updateStaticVariablesMap(updateVariableName, String.valueOf(jsonObject));
+                boolean staticVariablesUpdated = AlmaApiCommand.updateStaticVariablesMap(updateVariableName, jsonObject);
                 if (!staticVariablesUpdated) {
                     log.debug("static variables map was not successfully updated");
                 }
@@ -342,7 +342,6 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             // any kind of exception should stop further steps, e.g. NullPointerException
             String message = "Exception caught while running commands: " + e.toString();
             logBoth(processId, LogType.ERROR, message);
-            e.printStackTrace();
             return false;
         }
 
@@ -361,10 +360,11 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                 return saveProperty(entry);
             case "metadata":
                 return saveMetadata(entry);
+            // TODO group
             default:
                 String message = "Ignoring unknown entry type: " + type + ".";
                 logBoth(processId, LogType.WARN, message);
-                return true;
+                return false;
         }
     }
 
@@ -379,25 +379,31 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             String propertyName = propertyTemplate.getName();
             String wrappedKey = AlmaApiCommand.wrapKey(propertyTemplate.getValue());
             List<String> propertyValues = AlmaApiCommand.getVariableValues(wrappedKey);
-
-            // determine property value according to the configured choice
-            String propertyValue = getEntryValue(propertyValues, propertyTemplate.getChoice());
-            log.debug("property value to be saved: " + propertyValue);
-
-            // get the Processproperty object
-            Processproperty propertyObject = getProcesspropertyObject(propertyName, propertyTemplate.isOverwrite());
-            propertyObject.setWert(propertyValue);
-            PropertyManager.saveProcessProperty(propertyObject);
-
+            if ("each".equals(propertyTemplate.getChoice())) {
+                for (String propertyValue : propertyValues) {
+                    saveProp(propertyTemplate, propertyName, propertyValue);
+                }
+            } else {
+                // determine property value according to the configured choice
+                String propertyValue = getEntryValue(propertyValues, propertyTemplate.getChoice());
+                saveProp(propertyTemplate, propertyName, propertyValue);
+            }
             return true;
 
         } catch (Exception e) {
             // any kind of exception should stop further steps, e.g. NullPointerException
             String message = "Exception caught while saving process properties: " + e.toString();
             logBoth(processId, LogType.ERROR, message);
-            e.printStackTrace();
-            return false;
         }
+        return false;
+    }
+
+    private void saveProp(EntryToSaveTemplate propertyTemplate, String propertyName, String propertyValue) {
+        log.debug("property value to be saved: " + propertyValue);
+        // get the Processproperty object
+        Processproperty propertyObject = getProcesspropertyObject(propertyName, propertyTemplate.isOverwrite());
+        propertyObject.setWert(propertyValue);
+        PropertyManager.saveProcessProperty(propertyObject);
     }
 
     /**
@@ -433,58 +439,42 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      */
     private boolean saveMetadata(EntryToSaveTemplate metadataTemplate) {
         String mdTypeName = metadataTemplate.getName();
-        List<String> metadataValues = AlmaApiCommand.getVariableValues(metadataTemplate.getValue());
-
-        // determine metadata value according to the configured choice
-        String mdValue = getEntryValue(metadataValues, metadataTemplate.getChoice());
-
         try {
             Fileformat fileformat = process.readMetadataFile();
             DigitalDocument digital = fileformat.getDigitalDocument();
             DocStruct logical = digital.getLogicalDocStruct();
+            if ("group".equals(metadataTemplate.getType())) {
 
-            Metadata oldMd = metadataTemplate.isOverwrite() ? findExistingMetadata(logical, mdTypeName) : null;
-            Metadata newMd = createNewMetadata(mdTypeName, mdValue);
-            if (oldMd != null) {
-                logical.changeMetadata(oldMd, newMd);
             } else {
-                logical.addMetadata(newMd);
+                List<String> metadataValues = AlmaApiCommand.getVariableValues(metadataTemplate.getValue());
+                if ("each".equals(metadataTemplate.getChoice())) {
+                    for (String mdValue : metadataValues) {
+                        addMetadata(metadataTemplate, mdTypeName, logical, mdValue);
+                    }
+                } else {
+                    // determine metadata value according to the configured choice
+                    String mdValue = getEntryValue(metadataValues, metadataTemplate.getChoice());
+                    addMetadata(metadataTemplate, mdTypeName, logical, mdValue);
+                }
             }
-
             process.writeMetadataFile(fileformat);
-
-            return true;
-
-        } catch (ReadException | IOException | SwapException e) {
-            String message = "Failed to read the metadata file.";
+        } catch (UGHException | IOException | SwapException e) {
+            String message = "Failed to update the metadata file.";
             logBoth(processId, LogType.ERROR, message);
-            e.printStackTrace();
             return false;
 
-        } catch (PreferencesException e) {
-            String message = "PreferencesException caught while trying to get the digital document.";
-            logBoth(processId, LogType.ERROR, message);
-            e.printStackTrace();
-            return false;
+        }
+        return true;
+    }
 
-        } catch (MetadataTypeNotAllowedException e) {
-            String message = "Metadata type '" + mdTypeName + "' is not allowed";
-            logBoth(processId, LogType.ERROR, message);
-            e.printStackTrace();
-            return false;
-
-        } catch (WriteException e) {
-            String message = "Failed to save the metadata file.";
-            logBoth(processId, LogType.ERROR, message);
-            e.printStackTrace();
-            return false;
-
-        } catch (Exception e) {
-            // any kind of exception should stop further steps, e.g. NullPointerException
-            String message = "Unusual exception caught while saving metadata: " + e.toString();
-            logBoth(processId, LogType.ERROR, message);
-            e.printStackTrace();
-            return false;
+    private void addMetadata(EntryToSaveTemplate metadataTemplate, String mdTypeName, DocStruct logical, String mdValue)
+            throws MetadataTypeNotAllowedException {
+        Metadata oldMd = metadataTemplate.isOverwrite() ? findExistingMetadata(logical, mdTypeName) : null;
+        Metadata newMd = createNewMetadata(mdTypeName, mdValue);
+        if (oldMd != null) {
+            logical.changeMetadata(oldMd, newMd);
+        } else {
+            logical.addMetadata(newMd);
         }
     }
 
@@ -532,6 +522,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * @return property value that is to be saved
      */
     private String getEntryValue(List<String> entryValues, String choice) {
+        // TODO remove this, allow multiple entries
         switch (choice.toLowerCase()) {
             case "first":
                 return entryValues.get(0);
@@ -541,19 +532,19 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                 return entryValues.get(random.nextInt(entryValues.size()));
             default:
                 // combine all values
+
+                String delimiter = getDelimiterFromChoice(choice);
+                log.debug("using delimiter = " + delimiter);
+
+                StringBuilder sb = new StringBuilder();
+                for (String entryValue : entryValues) {
+                    if (sb.length() > 0) {
+                        sb.append(delimiter);
+                    }
+                    sb.append(entryValue);
+                }
+                return sb.toString();
         }
-
-        String delimiter = getDelimiterFromChoice(choice);
-        log.debug("using delimiter = " + delimiter);
-
-        StringBuilder sb = new StringBuilder();
-        for (String entryValue : entryValues) {
-            sb.append(entryValue).append(delimiter);
-        }
-
-        String value = sb.toString();
-
-        return value.substring(0, value.lastIndexOf(delimiter));
     }
 
     /**
@@ -614,7 +605,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * @return response as JSONObject, or null if any error occurred
      */
     private JSONObject runCommand(String method, String headerAccept, String headerContentType, String url, String body) {
-        return "get".equalsIgnoreCase(method) ? runCommandGet(headerAccept, headerContentType, url)
+        return "get".equalsIgnoreCase(method) ? runCommandGet(url)
                 : runCommandNonGet(method, headerAccept, headerContentType, url, body);
     }
 
@@ -626,29 +617,36 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * @param url request url
      * @return response as JSONObject, or null if any error occurred
      */
-    private JSONObject runCommandGet(String headerAccept, String headerContentType, String url) {
-        HttpGet httpGet = new HttpGet(url);
-        try (CloseableHttpClient client = HttpClients.createDefault()) {
-            httpGet.setHeader("Accept", headerAccept);
-            httpGet.setHeader("Content-type", headerContentType);
-
-            String message = "Executing request " + httpGet.getRequestLine();
-            logBoth(processId, LogType.INFO, message);
-
-            String responseBody = client.execute(httpGet, RESPONSE_HANDLER);
-            log.debug("------- response body -------");
-            log.debug(responseBody);
-            log.debug("------- response body -------");
-
-            return headerAccept.endsWith("json") ? JSONUtils.getJSONObjectFromString(responseBody) : null;
-
-        } catch (IOException e) {
-            String message = "IOException caught while executing request: " + httpGet.getRequestLine();
-            logBoth(processId, LogType.ERROR, message);
+    private JSONObject runCommandGet(String url) {
+        String response = HttpUtils.getStringFromUrl(url);
+        try {
+            return JSONUtils.getJSONObjectFromString(response);
         } catch (ParseException e) {
-            String message = "ParseException caught while executing request: " + httpGet.getRequestLine();
-            logBoth(processId, LogType.ERROR, message);
+            log.error(e);
         }
+
+        //        HttpGet httpGet = new HttpGet(url);
+        //        try (CloseableHttpClient client = HttpClients.createDefault()) {
+        //            httpGet.setHeader("Accept", headerAccept);
+        //            httpGet.setHeader("Content-type", headerContentType);
+        //
+        //            String message = "Executing request " + httpGet.getRequestLine();
+        //            logBoth(processId, LogType.INFO, message);
+        //
+        //            String responseBody = client.execute(httpGet, RESPONSE_HANDLER);
+        //            log.debug("------- response body -------");
+        //            log.debug(responseBody);
+        //            log.debug("------- response body -------");
+        //
+        //            return headerAccept.endsWith("json") ? JSONUtils.getJSONObjectFromString(responseBody) : null;
+        //
+        //        } catch (IOException e) {
+        //            String message = "IOException caught while executing request: " + httpGet.getRequestLine();
+        //            logBoth(processId, LogType.ERROR, message);
+        //        } catch (ParseException e) {
+        //            String message = "ParseException caught while executing request: " + httpGet.getRequestLine();
+        //            logBoth(processId, LogType.ERROR, message);
+        //        }
         return null; //NOSONAR
     }
 

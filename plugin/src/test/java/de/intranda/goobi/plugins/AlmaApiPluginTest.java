@@ -10,7 +10,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
+import java.util.regex.MatchResult;
 
 import org.easymock.EasyMock;
 import org.goobi.beans.Process;
@@ -18,6 +20,7 @@ import org.goobi.beans.Project;
 import org.goobi.beans.Ruleset;
 import org.goobi.beans.Step;
 import org.goobi.beans.User;
+import org.goobi.production.enums.PluginReturnValue;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -31,18 +34,20 @@ import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
 import de.sub.goobi.config.ConfigurationHelper;
+import de.sub.goobi.helper.Helper;
 import de.sub.goobi.helper.VariableReplacer;
 import de.sub.goobi.helper.enums.StepStatus;
 import de.sub.goobi.metadaten.MetadatenHelper;
 import de.sub.goobi.persistence.managers.MetadataManager;
 import de.sub.goobi.persistence.managers.ProcessManager;
+import io.goobi.workflow.api.connection.HttpUtils;
 import ugh.dl.Fileformat;
 import ugh.dl.Prefs;
 import ugh.fileformats.mets.MetsMods;
 
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({ MetadatenHelper.class, VariableReplacer.class, ConfigurationHelper.class, ProcessManager.class,
-        MetadataManager.class })
+        MetadataManager.class, Helper.class, HttpUtils.class })
 @PowerMockIgnore({ "javax.management.*", "javax.xml.*", "org.xml.*", "org.w3c.*", "javax.net.ssl.*", "jdk.internal.reflect.*" })
 public class AlmaApiPluginTest {
 
@@ -76,7 +81,6 @@ public class AlmaApiPluginTest {
         assertNotNull(plugin);
     }
 
-    @Ignore
     @Test
     public void testInit() {
         AlmaApiStepPlugin plugin = new AlmaApiStepPlugin();
@@ -85,9 +89,11 @@ public class AlmaApiPluginTest {
     }
 
     @Test
-    public void testVersion() throws IOException {
-        String s = "xyz";
-        assertNotNull(s);
+    @Ignore
+    public void testRun() {
+        AlmaApiStepPlugin plugin = new AlmaApiStepPlugin();
+        plugin.initialize(step, "something");
+        assertEquals(PluginReturnValue.FINISH, plugin.run());
     }
 
     @Before
@@ -115,13 +121,34 @@ public class AlmaApiPluginTest {
         EasyMock.expect(configurationHelper.getMetadataFolder()).andReturn(metadataDirectoryName).anyTimes();
         EasyMock.expect(configurationHelper.getRulesetFolder()).andReturn(resourcesFolder).anyTimes();
         EasyMock.expect(configurationHelper.getProcessImagesMainDirectoryName()).andReturn("00469418X_media").anyTimes();
-        EasyMock.expect(configurationHelper.isUseMasterDirectory()).andReturn(true).anyTimes();
+
         EasyMock.expect(configurationHelper.getConfigurationFolder()).andReturn(resourcesFolder).anyTimes();
+        EasyMock.expect(configurationHelper.getGoobiFolder()).andReturn(resourcesFolder).anyTimes();
+        EasyMock.expect(configurationHelper.getScriptsFolder()).andReturn(resourcesFolder).anyTimes();
+
         EasyMock.expect(configurationHelper.getNumberOfMetaBackups()).andReturn(0).anyTimes();
         EasyMock.replay(configurationHelper);
 
+        PowerMock.mockStatic(HttpUtils.class);
+        EasyMock.expect(HttpUtils.getStringFromUrl(EasyMock.anyString())).andReturn(getJsonResponse());
+
+        PowerMock.mockStatic(Helper.class);
+        Helper.addMessageToProcessJournal(EasyMock.anyInt(), EasyMock.anyObject(), EasyMock.anyString());
+        Helper.addMessageToProcessJournal(EasyMock.anyInt(), EasyMock.anyObject(), EasyMock.anyString());
+        Helper.addMessageToProcessJournal(EasyMock.anyInt(), EasyMock.anyObject(), EasyMock.anyString());
+
         PowerMock.mockStatic(VariableReplacer.class);
         EasyMock.expect(VariableReplacer.simpleReplace(EasyMock.anyString(), EasyMock.anyObject())).andReturn("00469418X_media").anyTimes();
+
+        Iterable<MatchResult> results = EasyMock.createMock(Iterable.class);
+        Iterator<MatchResult> iter = EasyMock.createMock(Iterator.class);
+        EasyMock.expect(results.iterator()).andReturn(iter).anyTimes();
+        EasyMock.expect(iter.hasNext()).andReturn(false).anyTimes();
+
+        EasyMock.expect(VariableReplacer.findRegexMatches(EasyMock.anyString(), EasyMock.anyString())).andReturn(results).anyTimes();
+        EasyMock.replay(results);
+        EasyMock.replay(iter);
+
         PowerMock.replay(VariableReplacer.class);
         prefs = new Prefs();
         prefs.loadPrefs(resourcesFolder + "ruleset.xml");
@@ -141,6 +168,8 @@ public class AlmaApiPluginTest {
         MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
         PowerMock.replay(MetadataManager.class);
         PowerMock.replay(ConfigurationHelper.class);
+        PowerMock.replay(Helper.class);
+        PowerMock.replay(HttpUtils.class);
 
         process = getProcess();
 
@@ -152,6 +181,82 @@ public class AlmaApiPluginTest {
         EasyMock.expect(ruleset.getPreferences()).andReturn(prefs).anyTimes();
         PowerMock.replay(ruleset);
 
+    }
+
+    private String getJsonResponse() {
+        String s = "{\n"
+                + "  \"status\": \"success\",\n"
+                + "  \"message\": \"Found 1\",\n"
+                + "  \"payload\": {\n"
+                + "    \"thesis_id\": \"TID123\",\n"
+                + "    \"final_draft_id\": \"FDI123\",\n"
+                + "    \"similarity_submission_id\": \"SSI123\",\n"
+                + "    \"draft\": {\n"
+                + "      \"id\": \"FDI123\",\n"
+                + "      \"filename\": \"<filename of submitted pdf>\",\n"
+                + "      \"url\": \"<url of file if present>\",\n"
+                + "      \"hash\": \"<sha256 has of submitted pdf>\"\n"
+                + "    },\n"
+                + "    \"attachments\": [\n"
+                + "      {\n"
+                + "        \"id\": \"<id>\",\n"
+                + "        \"filename\": \"<filename>\",\n"
+                + "        \"url\": \"<url of file if present>\",\n"
+                + "        \"hash\": \"<sha256>\"\n"
+                + "      }\n"
+                + "    ],\n"
+                + "    \"title_eng\": \"Main title\",\n"
+                + "    \"title_orig\": \"Haupttitel\",\n"
+                + "    \"language\": \"Deutsch\",\n"
+                + "    \"abstract_eng\": \"Here is the English abstract\",\n"
+                + "    \"abstract_orig\": \"Hier steht eine deutsche Zusammenfassung\",\n"
+                + "    \"coauthors\": [\n"
+                + "      {\n"
+                + "        \"firstname\": \"Vorname Student\",\n"
+                + "        \"surname\": \"Nachname Student\",\n"
+                + "        \"stud_id\": \"12345\"\n"
+                + "      }\n"
+                + "    ],\n"
+                + "    \"reviewers\": [\n"
+                + "      {\n"
+                + "        \"firstname\": \"Vorname Reviewer 1\",\n"
+                + "        \"surname\": \"Nachname Reviewer 1\",\n"
+                + "        \"email\": \"name@email.ac.at\"\n"
+                + "      },\n"
+                + "      {\n"
+                + "        \"firstname\": \"Vorname Reviewer 2\",\n"
+                + "        \"surname\": \"Nachname Reviewer 2\",\n"
+                + "        \"email\": \"name2@email.ac.at\"\n"
+                + "      }\n"
+                + "    ],\n"
+                + "    \"submitted_at\": \"2023-06-02\",\n"
+                + "    \"graded_at\": \"2023-07-20\",\n"
+                + "    \"type\": \"Master\",\n"
+                + "    \"program\": \"Masterstudium Steuern und Rechnungslegung\",\n"
+                + "    \"achieving_title\": \"Master of Arts\",\n"
+                + "    \"page_count\": \"98\",\n"
+                + "    \"keywords\": [\n"
+                + "      \"UGB\",\n"
+                + "      \"IFRS\",\n"
+                + "      \"Bilanzierung\",\n"
+                + "      \"Cloud\"\n"
+                + "    ],\n"
+                + "    \"allow_publish\": {\n"
+                + "      \"label\": \"Ich stimme der Veröffentlichung zu\",\n"
+                + "      \"value\": true\n"
+                + "    },\n"
+                + "    \"own_work\": {\n"
+                + "      \"label\": \"Das habe ich selbst verfasst\",\n"
+                + "      \"value\": true\n"
+                + "    },\n"
+                + "    \"is_blocking\": false,\n"
+                + "    \"blocking_length\": \"\",\n"
+                + "    \"blocking_description\": \"\"\n"
+                + "  }\n"
+                + "}\n"
+                + "";
+
+        return s;
     }
 
     public Process getProcess() {

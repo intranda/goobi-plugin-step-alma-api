@@ -37,6 +37,7 @@ import java.util.stream.Stream;
 
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.lang3.StringUtils;
+import org.json.simple.JSONArray;
 
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
@@ -52,7 +53,7 @@ public class AlmaApiCommand {
     // pattern that matches the xml comments <!-- ... -->
     private static final String XML_COMMENT_PATTERN = "<!--[\\s\\S]*?-->";
     // static variables created before creations of all commands or created by previous commands, shared by all commands
-    private static final Map<String, List<String>> STATIC_VARIABLES_MAP = new HashMap<>();
+    private static final Map<String, List<Object>> STATIC_VARIABLES_MAP = new HashMap<>();
     @Getter
     private List<String> endpoints;
     @Getter
@@ -68,7 +69,7 @@ public class AlmaApiCommand {
     @Getter
     private String filterAlternativeOption;
     @Getter
-    private Map<String, String> targetVariablePathMap;
+    private List<Target> targets;
     @Getter
     private String updateVariableName;
     @Getter
@@ -231,7 +232,8 @@ public class AlmaApiCommand {
      */
     private List<String> replaceStaticVariableInEndpoint(String rawEndpoint, String staticVariable) {
         List<String> results = new ArrayList<>();
-        List<String> possibleValues = STATIC_VARIABLES_MAP.get(staticVariable);
+        List<String> possibleValues = getVariableValues(staticVariable);
+
         for (String value : possibleValues) {
             String endpoint = rawEndpoint.replace(staticVariable, value);
             results.add(endpoint);
@@ -278,7 +280,7 @@ public class AlmaApiCommand {
             }
 
             // retrieve value from the variables map
-            filterValue = STATIC_VARIABLES_MAP.get(wrappedKey).get(0);
+            filterValue = getVariableValues(wrappedKey).get(0);
             log.debug("filterValue after replacing static variable = " + filterValue);
         }
 
@@ -313,11 +315,13 @@ public class AlmaApiCommand {
      * @param configs a list of HierarchicalConfiguration objects
      */
     private void initializeTargetFields(List<HierarchicalConfiguration> configs) {
-        targetVariablePathMap = new HashMap<>();
+        targets = new ArrayList<>();
         for (HierarchicalConfiguration config : configs) {
             String variable = config.getString("@var");
             String path = config.getString("@path");
-            targetVariablePathMap.put(variable, path);
+            String type = config.getString("@type", "string");
+            Target t = new Target(variable, path, type);
+            targets.add(t);
         }
     }
 
@@ -571,14 +575,14 @@ public class AlmaApiCommand {
      * @param value variable value
      * @return true if the static variables map is successfully updated, false otherwise
      */
-    public static boolean updateStaticVariablesMap(String variable, String value) {
-        if (StringUtils.isBlank(value)) {
+    public static boolean updateStaticVariablesMap(String variable, Object value) {
+        if (value == null) {
             log.debug("The variable's value should not be blank.");
             return false;
         }
-
-        List<String> values = Arrays.asList(value);
-        return updateStaticVariablesMap(variable, values);
+        List<Object> data = new ArrayList<>();
+        data.add(value);
+        return updateStaticVariablesMap(variable, data);
     }
 
     /**
@@ -588,7 +592,7 @@ public class AlmaApiCommand {
      * @param values a list of possible variable values
      * @return true if the static variables map is successfully updated, false otherwise
      */
-    public static boolean updateStaticVariablesMap(String variable, List<String> values) {
+    public static boolean updateStaticVariablesMap(String variable, List<Object> values) {
         if (StringUtils.isBlank(variable)) {
             // no variable defined, hence no need to update
             return true;
@@ -608,7 +612,6 @@ public class AlmaApiCommand {
         }
 
         STATIC_VARIABLES_MAP.put(wrappedKey, values);
-        log.debug("Static variables map updated: " + wrappedKey + " -> " + values.toString());
         return true;
     }
 
@@ -641,7 +644,22 @@ public class AlmaApiCommand {
      * @return all possible values of this static variable
      */
     public static List<String> getVariableValues(String key) {
-        return STATIC_VARIABLES_MAP.containsKey(key) ? STATIC_VARIABLES_MAP.get(key) : Arrays.asList(key);
+        if (!STATIC_VARIABLES_MAP.containsKey(key)) {
+            return Arrays.asList(key);
+        }
+        List<Object> data = STATIC_VARIABLES_MAP.get(key);
+        List<String> results = new ArrayList<>();
+        for (Object obj : data) {
+            if (obj instanceof JSONArray) {
+                JSONArray array = (JSONArray) obj;
+                for (Object object : array.toArray()) {
+                    results.add((String) object);
+                }
+            } else if (obj instanceof String) {
+                results.add((String) obj);
+            }
+        }
+        return results;
     }
 
 }

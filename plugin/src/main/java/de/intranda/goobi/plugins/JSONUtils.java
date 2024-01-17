@@ -413,7 +413,7 @@ public class JSONUtils {
     /**
      * filter out the input JSONObject and retrieve values from multiple target paths at the same time
      * 
-     * @param targets a map with its keys being names of target variables and its values being corresponding JSON paths
+     * @param targetVariablePathList a map with its keys being names of target variables and its values being corresponding JSON paths
      * @param filterPath JSON path where values needed for filtering are to be found
      * @param filterFallbackPath JSON path from where values are to be retrieved when values retrieved from filterPath are all blank
      * @param filterValue value needed for comparison
@@ -422,12 +422,16 @@ public class JSONUtils {
      * @param jsonObject JSONObject
      * @return a list of values found
      */
-    public static Map<String, List<Object>> getFilteredValuesFromSource(Map<String, String> targets, String filterPath, String filterFallbackPath,
+    public static Map<String, List<Object>> getFilteredValuesFromSource(List<Target> targetVariablePathList, String filterPath,
+            String filterFallbackPath,
             String filterValue, String filterAlternativeOption, JSONObject jsonObject) {
 
         log.debug("======= getting filtered values from a map =======");
         Map<String, List<Object>> results = new HashMap<>();
-        List<String> targetPaths = new ArrayList<>(targets.values());
+        List<String> targetPaths = new ArrayList<>(targetVariablePathList.size());
+        for (Target t : targetVariablePathList) {
+            targetPaths.add(t.getPath());
+        }
 
         // get the common heading of targetPath and filterPath
         String commonHeadingTarget = getCommonHeading(targetPaths);
@@ -446,9 +450,9 @@ public class JSONUtils {
             boolean filterValueMatches = isJsonValueAMatch(filterTail, filterFallbackTail, filterValue, obj);
             if (filterValueMatches) {
                 // use the tailing part of every targetPath to retrieve a list of targeted values
-                for (Map.Entry<String, String> target : targets.entrySet()) {
-                    String targetVariable = target.getKey();
-                    String targetPath = target.getValue();
+                for (Target target : targetVariablePathList) {
+                    String targetVariable = target.getVariableName();
+                    String targetPath = target.getPath();
                     String targetTail = getPathTail(targetPath, commonHeading);
                     List<Object> targetResults = getValuesFromSourceGeneral(targetTail, obj);
                     results.put(targetVariable, targetResults);
@@ -458,13 +462,14 @@ public class JSONUtils {
             }
         }
 
-        for (Map.Entry<String, String> target : targets.entrySet()) {
-            String variable = target.getKey();
+        for (Target target : targetVariablePathList) {
+            String variable = target.getVariableName();
             // in case of empty sub-results, check filterAlternativeOption
             if (!results.containsKey(variable) && !StringUtils.isBlank(filterAlternativeOption)) {
-                String pathTail = getPathTail(target.getValue(), commonHeading);
+                String pathTail = getPathTail(target.getPath(), commonHeading);
                 switch (StringUtils.lowerCase(filterAlternativeOption)) {
                     case "all":
+                    case "each":
                         results.put(variable, getValuesFromSourceGeneral(pathTail, commonParents));
                         break;
                     case "first":
@@ -497,7 +502,7 @@ public class JSONUtils {
      * @param jsonObject JSONObject
      * @return a list of values found
      */
-    public static Map<String, List<Object>> getFilteredValuesFromSource(Map<String, String> targets, String filterPath, String filterValue,
+    public static Map<String, List<Object>> getFilteredValuesFromSource(List<Target> targets, String filterPath, String filterValue,
             String filterAlternativeOption, JSONObject jsonObject) {
 
         return getFilteredValuesFromSource(targets, filterPath, filterPath, filterValue, filterAlternativeOption, jsonObject);

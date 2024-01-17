@@ -1,12 +1,5 @@
 <config_plugin>
-    <!--
-        order of configuration is:
-          1.) project name and step name matches
-          2.) step name matches and project is *
-          3.) project name matches and step name is *
-          4.) project name and step name are *
-	-->
-    
+   
     <config>
         <!-- which projects to use for (can be more then one, otherwise use *) -->
         <project>*</project>
@@ -22,7 +15,7 @@
               @name: name of the variable, e.g. VARIABLE. To use this variable's value, one can simply use {$VARIABLE}.
               @value: value to initialize this variable. It can be plain string value, or a Goobi variable, e.g. {meta.NAME} for a Metadata named NAME.
          -->
-        <variable name="MMS_ID" value="{meta.RezenssionsZssDBID}" />
+        <variable name="MMS_ID" value="{meta.CatalogIDDigital}" />
         <!-- There can be multiple variables defined before all commands. -->
         <variable name="SIGNATURE" value="{meta.shelfmarksource}" />
         
@@ -39,7 +32,7 @@
         <command method="get" accept="json" content-type="json" endpoint="/almaws/v1/bibs/{mms_id}/holdings/ALL/items">
         	<!-- define the value of the placeholder {mms_id} using the variable named MMS_ID -->
         	<mms_id>{$MMS_ID}</mms_id>
-        	
+        	<parameter name="normalization" value="43588" />
         	<!-- Filter condition that is to be applied on the REST call response. OPTIONAL.
         	      ATTENTION: to use this tag, one has to assure that the @accept configured in the command tag is json.
         	      @key: JSON path from which the values are to be fetched for the filtering process
@@ -157,101 +150,6 @@
         </save>
     </config>
     
-    <config>
-        <!-- which projects to use for (can be more then one, otherwise use *) -->
-        <project>*</project>
-        <step>upload marc and portfolio</step>
-        
-        <!-- Base URL -->
-        <url>https://api-eu.hosted.exlibrisgroup.com</url>
-        
-        <!-- API key -->
-        <api-key>CHANGE_ME</api-key>
-        
-        <variable name="MARC_FOLDER" value="/opt/digiverso/goobi/marcexport/{processid}" />
-        <variable name="PORTFOLIO_PATH" value="/opt/digiverso/import/portfolio.xml" />
-        
-        <command method="post" accept="json" content-type="xml" endpoint="/almaws/v1/bibs">
-            <parameter name="normalization" value="43588" />
-            <parameter name="validate" value="false" />
-            <parameter name="override_warning" value="true" />
-            <parameter name="check_match" value="false" />
-        	
-            <!-- Set up request body. OPTIONAL.
-                 @src: absolute path to the file whose contents shall be used as request body. OPTIONAL. It accepts one of the following both:
-                          - a plain text value stating the absolute path
-                          - a predefined variable containing the absolute path
-                          ATTENTION: one can also use the absolute path of the folder containing this file here, in which case the content of the first file in that folder will be used.
-                 @wrapper: wrappers separated by space that shall be wrapped around the content read from the file. ONLY applicable if @src is configured. OPTIONAL.
-                                  The precise way of wrapping depends on the setting of @content-type of the command tag.
-                                  For example, say one has wrapper configured as "wrapper1 wrapper2 wrapper3" then:
-                                  - If @content-type="json", the file content will be wrapped as {wrapper1: {wrapper2: {wrapper3: {FILE_CONTENT}}}} 
-                                  - If @content-type="xml", the file content will be wrapped as <wrapper1><wrapper2><wrapper3>{FILE_CONTENT}</wrapper3></wrapper2></wrapper1>
-                 @value: use a plain text value or a predefined variable instead of the content of a file. OPTIONAL. ATTENTION:
-                              - to use a plain text value one has to assure that its format matches the configured @content-type correctly
-                              - to use a variable one has to assure that the format of the variable's value matches the configured @content-type correctly
-              -->
-            <body src="{$MARC_FOLDER}" wrapper="bib" />
-        	
-            <target var="MMS_ID" path="mms_id" />
-        </command>
-        
-        <command method="post" accept="json" content-type="xml" endpoint="/almaws/v1/bibs/{mms_id}/portfolios">
-            <mms_id>{$MMS_ID}</mms_id>
-            <!-- use content of the file as request body, no wrapper needed -->
-            <body src="{$PORTFOLIO_PATH}" wrapper="" />
-            <!-- create a new variable to hold the value on this JSON path  -->
-            <target var="PORTFOLIO_ID" path="id" />         
-        </command>       
-        
-        <!-- save values of variables as process properties  -->
-        <save type="property" name="mms_id" value="{$MMS_ID}" choice="first" overwrite="true" />
-        <save type="property" name="portfolio_id" value="{$PORTFOLIO_ID}" choice="first" overwrite="true" />
-    </config>
     
-    <config>
-        <!-- which projects to use for (can be more then one, otherwise use *) -->
-        <project>*</project>
-        <step>update portfolio</step>
-        
-        <!-- Base URL -->
-        <url>https://api-eu.hosted.exlibrisgroup.com</url>
-        
-        <!-- API key -->
-        <api-key>CHANGE_ME</api-key>
-        
-        <!-- create variables using values read from process properties -->
-        <variable name="MMS_ID" value="{process.mms_id}" />
-        <variable name="PORTFOLIO_ID" value="{process.portfolio_id}" />
-        
-        <command method="get" accept="json" content-type="json" endpoint="/almaws/v1/bibs/{mms_id}/portfolios/{portfolio_id}">
-            <!-- define the value of the placeholder {mms_id} using the value of the variable named MMS_ID -->
-            <mms_id>{$MMS_ID}</mms_id>
-            <!-- define the value of the placeholder {portfolio_id} using the value of the variable named PORTFOLIO_ID -->
-            <portfolio_id>{$PORTFOLIO_ID}</portfolio_id>      
-            	
-            <!-- An update tag is used to save the MAYBE updated response JSONObject as an variable. AT MOST ONE allowed. OPTIONAL.
-                   ATTENTION: to use this tag, one has to assure that the @accept configured in the command tag is json.
-                   @var: name of the variable that shall be used to save the JSONObject.
-               -->
-            <update var="UPDATED_PORTFOLIO" >
-                <!-- An entry tag is used to define modifications that shall be made on the response JSONObject. OPTIONAL. 
-                       @path: JSON path(s) of the item(s) that shall be modified, where plural comes into use when there is a JSONArray with multiple elements mixed in this JSON path
-                       @value: new value of the item(s) selected by the JSON path
-                    -->
-                <entry path="availability.value" value="10" />
-                <!-- There can be multiple entry sub-tags configured under the update tag. Entry updates will be done one by one. -->
-                <entry path="coverage_details.coverage_in_use.value" value="0" />
-            </update>
-        </command>
-        
-        <!-- use default settings of @accept and @content-type, which are both json -->
-        <command method="put" endpoint="/almaws/v1/bibs/{mms_id}/portfolios/{portfolio_id}">
-            <mms_id>{$MMS_ID}</mms_id>
-            <portfolio_id>{$PORTFOLIO_ID}</portfolio_id>        
-            <!-- use the JSONObject saved by the last command as the request body --> 	
-            <body value="{$UPDATED_PORTFOLIO}" />        	
-        </command>                     
-    </config>
 
 </config_plugin>
