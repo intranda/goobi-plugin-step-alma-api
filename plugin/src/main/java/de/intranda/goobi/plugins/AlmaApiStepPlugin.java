@@ -77,6 +77,10 @@ import ugh.exceptions.WriteException;
 @Log4j2
 public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
+    private static final long serialVersionUID = 8600900911972831477L;
+
+    private static Random random = new Random();
+
     @Getter
     private String title = "intranda_step_alma_api";
     @Getter
@@ -227,7 +231,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
     @Override
     public HashMap<String, StepReturnValue> validate() {
-        return null;
+        return null; //NOSONAR
     }
 
     @Override
@@ -241,11 +245,11 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         boolean successful = true;
         // your logic goes here
         for (AlmaApiCommand command : commandList) {
-            successful = successful && prepareAndRunCommand(command);
+            successful = successful && prepareAndRunCommand(command); //NOSONAR
         }
 
         for (EntryToSaveTemplate entry : entriesToSaveList) {
-            successful = successful && saveEntry(entry);
+            successful = successful && saveEntry(entry); //NOSONAR
         }
 
         String message = "AlmaApi step plugin executed.";
@@ -301,7 +305,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                     if (filteredValues.isEmpty()) {
                         log.debug("no match found");
                     }
-                    
+
                     // save the filteredValues
                     List<String> targetValues = new ArrayList<>();
                     filteredValues.stream()
@@ -438,7 +442,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             Fileformat fileformat = process.readMetadataFile();
             DigitalDocument digital = fileformat.getDigitalDocument();
             DocStruct logical = digital.getLogicalDocStruct();
-            
+
             Metadata oldMd = metadataTemplate.isOverwrite() ? findExistingMetadata(logical, mdTypeName) : null;
             Metadata newMd = createNewMetadata(mdTypeName, mdValue);
             if (oldMd != null) {
@@ -450,7 +454,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             process.writeMetadataFile(fileformat);
 
             return true;
-            
+
         } catch (ReadException | IOException | SwapException e) {
             String message = "Failed to read the metadata file.";
             logBoth(processId, LogType.ERROR, message);
@@ -534,7 +538,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             case "last":
                 return entryValues.get(entryValues.size() - 1);
             case "random":
-                return entryValues.get(new Random().nextInt(entryValues.size()));
+                return entryValues.get(random.nextInt(entryValues.size()));
             default:
                 // combine all values
         }
@@ -562,7 +566,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         if (StringUtils.isNotBlank(choice) && choice.startsWith(":") && choice.length() > 1) {
             return choice.substring(1);
         }
-        
+
         return ", ";
     }
 
@@ -641,15 +645,11 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         } catch (IOException e) {
             String message = "IOException caught while executing request: " + httpGet.getRequestLine();
             logBoth(processId, LogType.ERROR, message);
-            e.printStackTrace();
-            return null;
-
         } catch (ParseException e) {
             String message = "ParseException caught while executing request: " + httpGet.getRequestLine();
             logBoth(processId, LogType.ERROR, message);
-            e.printStackTrace();
-            return null;
         }
+        return null; //NOSONAR
     }
 
     /**
@@ -675,7 +675,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                 httpBase = new HttpPatch(url);
                 break;
             default: // unknown
-                return null;
+                return null; //NOSONAR
         }
 
         try (CloseableHttpClient client = HttpClients.createDefault()) {
@@ -696,15 +696,12 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         } catch (IOException e) {
             String message = "IOException caught while executing request: " + httpBase.getRequestLine();
             logBoth(processId, LogType.ERROR, message);
-            e.printStackTrace();
-            return null;
 
         } catch (ParseException e) {
             String message = "ParseException caught while executing request: " + httpBase.getRequestLine();
             logBoth(processId, LogType.ERROR, message);
-            e.printStackTrace();
-            return null;
         }
+        return null; //NOSONAR
     }
 
     /**

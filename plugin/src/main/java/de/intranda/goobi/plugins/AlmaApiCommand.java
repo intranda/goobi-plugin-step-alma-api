@@ -198,7 +198,7 @@ public class AlmaApiCommand {
             } else {
                 // unknown static variable
                 log.debug("unknown static variable detected: " + variableName);
-                return null; // as error code
+                return null; // NOSONAR as error code
             }
         }
 

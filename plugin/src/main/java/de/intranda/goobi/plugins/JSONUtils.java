@@ -37,6 +37,8 @@ import lombok.extern.log4j.Log4j2;
 public class JSONUtils {
     private static final JSONParser JSON_PARSER = new JSONParser();
 
+    private static Random random = new Random();
+
     private JSONUtils() {
         // hide the implicit one
     }
@@ -109,8 +111,8 @@ public class JSONUtils {
             if (value instanceof JSONArray) {
                 // save all values in this array
                 JSONArray jsonArray = (JSONArray) value;
-                for (int i = 0; i < jsonArray.size(); ++i) {
-                    results.add(jsonArray.get(i));
+                for (Object element : jsonArray) {
+                    results.add(element);
                 }
             } else {
                 // no array, just save the value
@@ -124,18 +126,18 @@ public class JSONUtils {
         int splitterIndex = source.indexOf(".");
         String key = source.substring(0, splitterIndex);
         String newSource = source.substring(splitterIndex + 1);
-        
+
         Object obj = jsonObject.get(key);
         if (obj instanceof JSONArray) {
             JSONArray jsonArray = (JSONArray) obj;
             results.addAll(getValuesFromSource(newSource, jsonArray));
-            
+
         } else {
             // JSONObject
             JSONObject subJsonObject = (JSONObject) obj;
             results.addAll(getValuesFromSource(newSource, subJsonObject));
         }
-        
+
         return results;
     }
 
@@ -152,8 +154,8 @@ public class JSONUtils {
         // base case: source is the wanted node, no further
         if (StringUtils.isBlank(source) || !source.contains(".")) {
             // add all plain values
-            for (int i = 0; i < jsonArray.size(); ++i) {
-                JSONObject jsonObject = (JSONObject) jsonArray.get(i);
+            for (Object element : jsonArray) {
+                JSONObject jsonObject = (JSONObject) element;
                 results.add(jsonObject.get(source));
             }
 
@@ -165,8 +167,8 @@ public class JSONUtils {
         String key = source.substring(0, splitterIndex);
         String newSource = source.substring(splitterIndex + 1);
 
-        for (int i = 0; i < jsonArray.size(); ++i) {
-            JSONObject element = (JSONObject) jsonArray.get(i);
+        for (Object element2 : jsonArray) {
+            JSONObject element = (JSONObject) element2;
             Object obj = element.get(key);
             if (obj instanceof JSONArray) {
                 results.addAll(getValuesFromSource(newSource, (JSONArray) obj));
@@ -234,8 +236,8 @@ public class JSONUtils {
         List<Object> results = new ArrayList<>();
         // base case: either one goes no further, then all JSONObjects in jsonArray are their common parents
         if (!targetPath.contains(".") || !filterPath.contains(".")) {
-            for (int i = 0; i < jsonArray.size(); ++i) {
-                results.add(jsonArray.get(i));
+            for (Object element : jsonArray) {
+                results.add(element);
             }
 
             return results;
@@ -250,8 +252,8 @@ public class JSONUtils {
 
         // targetPath and filterPath have no common heading, hence all JSONObjects in this JSONArray are their common parents
         if (!targetPathHead.equals(filterPathHead)) {
-            for (int i = 0; i < jsonArray.size(); ++i) {
-                results.add(jsonArray.get(i));
+            for (Object element : jsonArray) {
+                results.add(element);
             }
 
             return results;
@@ -260,8 +262,8 @@ public class JSONUtils {
         // move forward
         String newTargetPath = targetPath.substring(targetSplittingIndex + 1);
         String newFilterPath = filterPath.substring(filterSplittingIndex + 1);
-        for (int i = 0; i < jsonArray.size(); ++i) {
-            JSONObject jsonObject = (JSONObject) jsonArray.get(i);
+        for (Object element : jsonArray) {
+            JSONObject jsonObject = (JSONObject) element;
             Object obj = jsonObject.get(targetPathHead);
             if (obj instanceof JSONArray) {
                 JSONArray subJsonArray = (JSONArray) obj;
@@ -328,8 +330,8 @@ public class JSONUtils {
         // base case 2: commonHeading does not contain dot
         if (StringUtils.isBlank(commonHeading) || !commonHeading.contains(".")) {
             // in both cases, every element of the current JSONArray is a common parent
-            for (int i = 0; i < jsonArray.size(); ++i) {
-                results.add(jsonArray.get(i));
+            for (Object element : jsonArray) {
+                results.add(element);
             }
 
             return results;
@@ -340,8 +342,8 @@ public class JSONUtils {
         String head = commonHeading.substring(0, splittingIndex);
         String tail = commonHeading.substring(splittingIndex + 1);
 
-        for (int i = 0; i < jsonArray.size(); ++i) {
-            JSONObject jsonObject = (JSONObject) jsonArray.get(i);
+        for (Object element : jsonArray) {
+            JSONObject jsonObject = (JSONObject) element;
             Object obj = jsonObject.get(head);
             if (obj instanceof JSONArray) {
                 JSONArray subJsonArray = (JSONArray) obj;
@@ -399,7 +401,7 @@ public class JSONUtils {
                 case "last":
                     return getValuesFromSourceGeneral(targetTail, commonParents.get(commonParents.size() - 1));
                 case "random":
-                    return getValuesFromSourceGeneral(targetTail, commonParents.get(new Random().nextInt(commonParents.size())));
+                    return getValuesFromSourceGeneral(targetTail, commonParents.get(random.nextInt(commonParents.size())));
                 default:
                     // nothing special
             }
@@ -455,7 +457,7 @@ public class JSONUtils {
                 }
             }
         }
-        
+
         for (Map.Entry<String, String> target : targets.entrySet()) {
             String variable = target.getKey();
             // in case of empty sub-results, check filterAlternativeOption
@@ -472,7 +474,7 @@ public class JSONUtils {
                         results.put(variable, getValuesFromSourceGeneral(pathTail, commonParents.get(commonParents.size() - 1)));
                         break;
                     case "random":
-                        results.put(variable, getValuesFromSourceGeneral(pathTail, commonParents.get(new Random().nextInt(commonParents.size()))));
+                        results.put(variable, getValuesFromSourceGeneral(pathTail, commonParents.get(random.nextInt(commonParents.size()))));
                         break;
                     default:
                         // otherwise create an empty list as value
@@ -623,6 +625,7 @@ public class JSONUtils {
      * @param newValue new value to use
      * @param jsonObject JSONObject
      */
+    @SuppressWarnings("unchecked")
     public static void updateJSONObject(String jsonPath, String newValue, JSONObject jsonObject) {
         // base case: jsonPath has no children any more
         if (!jsonPath.contains(".")) {
@@ -649,8 +652,8 @@ public class JSONUtils {
             return;
         }
         // update all elements in this JSONArray
-        for (int i = 0; i < jsonArray.size(); ++i) {
-            updateJSONObject(pathValueMap, (JSONObject) jsonArray.get(i));
+        for (Object element : jsonArray) {
+            updateJSONObject(pathValueMap, (JSONObject) element);
         }
     }
 
@@ -663,8 +666,8 @@ public class JSONUtils {
      */
     public static void updateJSONArray(String jsonPath, String newValue, JSONArray jsonArray) {
         // update all elements in this JSONArray
-        for (int i = 0; i < jsonArray.size(); ++i) {
-            updateJSONObject(jsonPath, newValue, (JSONObject) jsonArray.get(i));
+        for (Object element : jsonArray) {
+            updateJSONObject(jsonPath, newValue, (JSONObject) element);
         }
     }
 
@@ -686,22 +689,6 @@ public class JSONUtils {
         String filterTail = StringUtils.removeStart(path, heading);
 
         return StringUtils.strip(filterTail, ".");
-    }
-
-    /**
-     * get a list of chopped tails of the input list of JSON paths
-     * 
-     * @param paths a list of JSON paths
-     * @param heading common heading string that is to be chopped out from every path in the list
-     * @return a list of chopped tails of the input paths
-     */
-    private static List<String> getPathTails(List<String> paths, String heading) {
-        List<String> tails = new ArrayList<>(paths.size());
-        for (String path : paths) {
-            tails.add(getPathTail(path, heading));
-        }
-
-        return tails;
     }
 
     /**
