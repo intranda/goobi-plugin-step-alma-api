@@ -11,121 +11,24 @@
         <!-- API key -->
         <api-key>CHANGE_ME</api-key>
         
-        <!-- Variables that can be used for following commands.
-              @name: name of the variable, e.g. VARIABLE. To use this variable's value, one can simply use {$VARIABLE}.
-              @value: value to initialize this variable. It can be plain string value, or a Goobi variable, e.g. {meta.NAME} for a Metadata named NAME.
-         -->
+  
         <variable name="MMS_ID" value="{meta.CatalogIDDigital}" />
-        <!-- There can be multiple variables defined before all commands. -->
         <variable name="SIGNATURE" value="{meta.shelfmarksource}" />
         
-        <!-- A command is a step to perform. There can be several commands configured, and if so, they will be run one by one in the same order as they are defined. 
-              @method: get | put | post | patch
-              @accept: json | xml. Used to set up the header parameter 'Accept'. OPTIONAL. DEFAULT json.
-              @content-type: json | xml. Used to set up the header parameter 'Content-type'. OPTIONAL. DEFAULT json.
-              @endpoint: raw endpoint string without replacing the placeholders enclosed by {}. For every placeholder say {PLACEHOLDER}, one has to configure it in a 
-                                sub-tag, and in our example it would be <PLACEHOLDER>. Options for values of these sub-tags are:
-                                - plain text value 
-                                - any variable defined by a <variable> tag before all <command> blocks
-                                - any variable defined by a <target> sub-tag of any previous <command> block
-        -->     
+     
         <command method="get" accept="json" content-type="json" endpoint="/almaws/v1/bibs/{mms_id}/holdings/ALL/items">
-        	<!-- define the value of the placeholder {mms_id} using the variable named MMS_ID -->
         	<mms_id>{$MMS_ID}</mms_id>
         	<parameter name="normalization" value="43588" />
-        	<!-- Filter condition that is to be applied on the REST call response. OPTIONAL.
-        	      ATTENTION: to use this tag, one has to assure that the @accept configured in the command tag is json.
-        	      @key: JSON path from which the values are to be fetched for the filtering process
-        	      @fallback: JSON path that shall be used when the JSON path configured by @key contains no value. OPTIONAL.
-        	      @value: value to be compared with, which can be a plain text value, or a variable defined previously in the format {$VARIABLE}
-        	      @alt: alternative option if there is no match found. Options are: all | first | last | random | none. OPTIONAL.
-        	              - all: filter nothing out, search the whole JSONObject for the following targets
-        	              - first: get the first JSONObject related to the common heading path shared by filter and targets, and search for targets within it
-        	              - last: get the last JSONObject related to the common heading path shared by filter and targets, and search for targets within it
-        	              - random: get a random JSONObject related to the common heading path shared by filter and targets, and search for targets within it
-        	              - none: filter everything out and stop searching. DEFAULT.
-        	 -->
-        	<filter key="item.item_data.alternative_call_number" fallback="item.holding_data.permanent_call_number" value="{$SIGNATURE}" alt="all" />
         	
-        	<!-- Target values that is to be retrieved from the REST call response and saved as a variable. OPTIONAL. 
-        	       ATTENTION: to use this tag, one has to assure that the @accept configured in the command tag is json.
-        	      @var: name of the variable that is to be used to save the target values retrieved. 
-        	                If the variable was already defined before, then its value will be updated. Otherwise a new variable under this name will be created. 
-        	      @path: JSON path from where values are to be retrieved.
-        	 -->
-        	<target var="ITEM_PID" path="item.item_data.pid" />
+        	<target var="ITEM_PID" path="thesis.tid" />
         	
-        	<!-- There can be multiple targets configured. -->
-        	<!-- In this example, the new variable will be named HOLDING_ID and it can be reused in the following steps using {$HOLDING_ID}. -->
-        	<target var="HOLDING_ID" path="item.holding_data.holding_id" />
+        
             
             <target var="STUDENT" path="thesis.student" type="object" />
         </command>
         
-        <!-- use default settings of @accept and @content-type, which are both json -->
-        <command method ="post" endpoint="/almaws/v1/bibs/{mms_id}/holdings/{holding_id}/items/{item_pid}">
-        	<!-- define the value of the placeholder {mms_id} using the variable named MMS_ID -->
-        	<mms_id>{$MMS_ID}</mms_id>
-        	<!-- define the value of the placeholder {holding_id} using the variable named HOLDING_ID -->
-        	<holding_id>{$HOLDING_ID}</holding_id>
-        	<!-- define the value of the placeholder {item_pid} using the variable named ITEM_PID -->
-        	<item_pid>{$ITEM_PID}</item_pid>
-        	
-            <!-- A parameter tag can be used to define parameters that shall be sent by the REST request. There can be multiple parameters configured.
-                  @name: parameter name
-                  @value: parameter value, which can only be plain text values here
-             -->
-        	<parameter name="op" value="scan" />
-        	<parameter name="library" value="" />
-        	<parameter name="department" value="InDigiZ_Dep" />
-        	<parameter name="work_order_type" value="InDigiZ" />
-        	<parameter name="done" value="false" />
-        </command>
+      
         
-        <!-- use default settings of @accept and @content-type, which are both json -->
-        <command method="post" endpoint="/almaws/v1/bibs/{mms_id}/holdings/{holding_id}/items/{item_pid}">
-        	<mms_id>{$MMS_ID}</mms_id>
-        	<holding_id>{$HOLDING_ID}</holding_id>
-        	<item_pid>{$ITEM_PID}</item_pid>
-        	
-        	<parameter name="op" value="scan" />
-        	<parameter name="library" value="" />
-        	<parameter name="department" value="InDigiZ_Dep" />
-        	<parameter name="work_order_type" value="InDigiZ" />
-        	<parameter name="done" value="true" />
-        </command>
-        
-        <!-- use default settings of @accept and @content-type, which are both json -->
-        <command method="post" endpoint="/almaws/v1/bibs/{mms_id}/holdings/{holding_id}/items/{item_pid}">
-        	<mms_id>{$MMS_ID}</mms_id>
-        	<holding_id>{$HOLDING_ID}</holding_id>
-        	<item_pid>{$ITEM_PID}</item_pid>
-        	
-        	<parameter name="op" value="scan" />
-        	<parameter name="library" value="Z01" />
-        	<parameter name="circ_desk" value="DEFAULT_CIRC_DESK" />
-        </command>
-        
-        <!-- A save tag is used to define an entry that is to be saved after running all previous commands. OPTIONAL.
-              @type: type of the entry, OPTIONS are property | metadata
-                         - property: save the entry as a process property
-                         - metadata: save the entry as a metadata
-              @name: name of the entry, which means
-                           - property name if @type is "property"
-                           - metadata type name if @type is "metadata"
-              @value: value of the new process property, possible values are
-                           - a plain text value
-                           - a variable defined before all <command> blocks via a <variable> tag
-                           - a variable defined within some <command> block via a <target> tag
-              @choice: indicates how many items should be saved into this new property, OPTIONS are first | last | all | random.
-                            - first: save only the first one among all retrieved values
-                            - last: save only the last one among all retrieved values
-                            - random: save a random one from all retrieved values
-                            - all: join all retrieved values to formulate a single string separated by commas and save it. DEFAULT. 
-              @overwrite: true if the old property named so should be reused, false if a new property should be created, DEFAULT false.
-        -->     
-        <save type="property" name="holding_id" value="{$HOLDING_ID}" choice="first" overwrite="true" />
-        <!-- There can be multiple save tags configured. -->
         <save type="property" name="item_pid" value="{$ITEM_PID}" choice="first" overwrite="true" />
         <save type="metadata" name="CatalogIDDigital" value="{$MMS_ID}" choice="first" overwrite="true" />
         
@@ -134,19 +37,6 @@
             <entry name="Name" path="fullname" />
             <entry name="StudentId" path="matricle" />
             
-         <!--    
-                  "student":{
-         "fullname":"LEGÉNY Philipp",
-         "firstname":"Philipp",
-         "surname":"Legény",
-         "email":"h12017676@wu.ac.at",
-         "role":"Student",
-         "reviewer_role":null,
-         "student_fk":248677,
-         "matricle":12017676,
-         "employee_fk":null
-      }
-      -->
         </save>
     </config>
     

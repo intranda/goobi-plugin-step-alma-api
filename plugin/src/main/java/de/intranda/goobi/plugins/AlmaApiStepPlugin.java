@@ -313,15 +313,15 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                     // save the filteredValues
                     List<Object> targetValues = new ArrayList<>();
                     filteredValues.stream()
-                            .filter(Objects::nonNull)
-                            .forEach(obj -> {
-                                if (obj.getClass().isArray() || obj instanceof Collection) {
-                                    List<Object> objectValues = new ArrayList<>((Collection<?>) obj);
-                                    targetValues.addAll(objectValues);
-                                } else {
-                                    targetValues.add(obj);
-                                }
-                            });
+                    .filter(Objects::nonNull)
+                    .forEach(obj -> {
+                        if (obj.getClass().isArray() || obj instanceof Collection) {
+                            List<Object> objectValues = new ArrayList<>((Collection<?>) obj);
+                            targetValues.addAll(objectValues);
+                        } else {
+                            targetValues.add(obj);
+                        }
+                    });
 
                     boolean staticVariablesUpdated = AlmaApiCommand.updateStaticVariablesMap(targetVariable, targetValues);
                     if (!staticVariablesUpdated) {
@@ -360,7 +360,9 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                 return saveProperty(entry);
             case "metadata":
                 return saveMetadata(entry);
-            // TODO group
+            case "group":
+                // TODO
+                return true;
             default:
                 String message = "Ignoring unknown entry type: " + type + ".";
                 logBoth(processId, LogType.WARN, message);
@@ -522,7 +524,6 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * @return property value that is to be saved
      */
     private String getEntryValue(List<String> entryValues, String choice) {
-        // TODO remove this, allow multiple entries
         switch (choice.toLowerCase()) {
             case "first":
                 return entryValues.get(0);
@@ -582,14 +583,14 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             String parameterName = parameter.getKey();
             String parameterValue = parameter.getValue();
             urlBuilder.append(parameterName)
-                    .append("=")
-                    .append(parameterValue)
-                    .append("&");
+            .append("=")
+            .append(parameterValue)
+            .append("&");
         }
 
         // append the api key
         urlBuilder.append("apikey=")
-                .append(apiKey);
+        .append(apiKey);
 
         return urlBuilder.toString();
     }

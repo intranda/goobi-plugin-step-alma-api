@@ -38,6 +38,7 @@ import java.util.stream.Stream;
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.lang3.StringUtils;
 import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
 
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
@@ -484,9 +485,9 @@ public class AlmaApiCommand {
     private String wrapBodyValueJSON(String content, String wrapper) {
         StringBuilder sb = new StringBuilder("{\"");
         sb.append(wrapper)
-                .append("\": ")
-                .append(content)
-                .append("}");
+        .append("\": ")
+        .append(content)
+        .append("}");
 
         return sb.toString();
     }
@@ -518,11 +519,11 @@ public class AlmaApiCommand {
     private String wrapBodyValueXML(String content, String wrapper) {
         StringBuilder sb = new StringBuilder("<");
         sb.append(wrapper)
-                .append(">")
-                .append(content)
-                .append("</")
-                .append(wrapper)
-                .append(">");
+        .append(">")
+        .append(content)
+        .append("</")
+        .append(wrapper)
+        .append(">");
 
         return sb.toString();
     }
@@ -655,8 +656,11 @@ public class AlmaApiCommand {
                 for (Object object : array.toArray()) {
                     results.add((String) object);
                 }
-            } else if (obj instanceof String) {
-                results.add((String) obj);
+            } else if (obj instanceof JSONObject) {
+                JSONObject json = (JSONObject) obj;
+                System.out.println(json.toString());
+            } else {
+                results.add(String.valueOf(obj));
             }
         }
         return results;

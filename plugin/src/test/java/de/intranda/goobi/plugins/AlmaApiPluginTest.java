@@ -23,7 +23,6 @@ import org.goobi.beans.User;
 import org.goobi.production.enums.PluginReturnValue;
 import org.junit.Before;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -40,6 +39,7 @@ import de.sub.goobi.helper.enums.StepStatus;
 import de.sub.goobi.metadaten.MetadatenHelper;
 import de.sub.goobi.persistence.managers.MetadataManager;
 import de.sub.goobi.persistence.managers.ProcessManager;
+import de.sub.goobi.persistence.managers.PropertyManager;
 import io.goobi.workflow.api.connection.HttpUtils;
 import ugh.dl.Fileformat;
 import ugh.dl.Prefs;
@@ -47,7 +47,7 @@ import ugh.fileformats.mets.MetsMods;
 
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({ MetadatenHelper.class, VariableReplacer.class, ConfigurationHelper.class, ProcessManager.class,
-        MetadataManager.class, Helper.class, HttpUtils.class })
+    MetadataManager.class, Helper.class, HttpUtils.class, PropertyManager.class })
 @PowerMockIgnore({ "javax.management.*", "javax.xml.*", "org.xml.*", "org.w3c.*", "javax.net.ssl.*", "jdk.internal.reflect.*" })
 public class AlmaApiPluginTest {
 
@@ -89,7 +89,6 @@ public class AlmaApiPluginTest {
     }
 
     @Test
-    @Ignore
     public void testRun() {
         AlmaApiStepPlugin plugin = new AlmaApiStepPlugin();
         plugin.initialize(step, "something");
@@ -159,13 +158,20 @@ public class AlmaApiPluginTest {
         EasyMock.expect(MetadatenHelper.getMetaFileType(EasyMock.anyString())).andReturn("mets").anyTimes();
         EasyMock.expect(MetadatenHelper.getFileformatByName(EasyMock.anyString(), EasyMock.anyObject())).andReturn(ff).anyTimes();
         EasyMock.expect(MetadatenHelper.getMetadataOfFileformat(EasyMock.anyObject(), EasyMock.anyBoolean()))
-                .andReturn(Collections.emptyMap())
-                .anyTimes();
+        .andReturn(Collections.emptyMap())
+        .anyTimes();
         PowerMock.replay(MetadatenHelper.class);
 
         PowerMock.mockStatic(MetadataManager.class);
         MetadataManager.updateMetadata(1, Collections.emptyMap());
         MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
+
+        PowerMock.mockStatic(PropertyManager.class);
+        EasyMock.expect(PropertyManager.getProcessPropertiesForProcess(EasyMock.anyInt())).andReturn(Collections.emptyList()).anyTimes();
+        PropertyManager.saveProcessProperty(EasyMock.anyObject());
+
+
+        PowerMock.replay(PropertyManager.class);
         PowerMock.replay(MetadataManager.class);
         PowerMock.replay(ConfigurationHelper.class);
         PowerMock.replay(Helper.class);
@@ -184,77 +190,137 @@ public class AlmaApiPluginTest {
     }
 
     private String getJsonResponse() {
-        String s = "{\n"
-                + "  \"status\": \"success\",\n"
-                + "  \"message\": \"Found 1\",\n"
-                + "  \"payload\": {\n"
-                + "    \"thesis_id\": \"TID123\",\n"
-                + "    \"final_draft_id\": \"FDI123\",\n"
-                + "    \"similarity_submission_id\": \"SSI123\",\n"
-                + "    \"draft\": {\n"
-                + "      \"id\": \"FDI123\",\n"
-                + "      \"filename\": \"<filename of submitted pdf>\",\n"
-                + "      \"url\": \"<url of file if present>\",\n"
-                + "      \"hash\": \"<sha256 has of submitted pdf>\"\n"
-                + "    },\n"
-                + "    \"attachments\": [\n"
-                + "      {\n"
-                + "        \"id\": \"<id>\",\n"
-                + "        \"filename\": \"<filename>\",\n"
-                + "        \"url\": \"<url of file if present>\",\n"
-                + "        \"hash\": \"<sha256>\"\n"
-                + "      }\n"
-                + "    ],\n"
-                + "    \"title_eng\": \"Main title\",\n"
-                + "    \"title_orig\": \"Haupttitel\",\n"
-                + "    \"language\": \"Deutsch\",\n"
-                + "    \"abstract_eng\": \"Here is the English abstract\",\n"
-                + "    \"abstract_orig\": \"Hier steht eine deutsche Zusammenfassung\",\n"
-                + "    \"coauthors\": [\n"
-                + "      {\n"
-                + "        \"firstname\": \"Vorname Student\",\n"
-                + "        \"surname\": \"Nachname Student\",\n"
-                + "        \"stud_id\": \"12345\"\n"
-                + "      }\n"
-                + "    ],\n"
-                + "    \"reviewers\": [\n"
-                + "      {\n"
-                + "        \"firstname\": \"Vorname Reviewer 1\",\n"
-                + "        \"surname\": \"Nachname Reviewer 1\",\n"
-                + "        \"email\": \"name@email.ac.at\"\n"
-                + "      },\n"
-                + "      {\n"
-                + "        \"firstname\": \"Vorname Reviewer 2\",\n"
-                + "        \"surname\": \"Nachname Reviewer 2\",\n"
-                + "        \"email\": \"name2@email.ac.at\"\n"
-                + "      }\n"
-                + "    ],\n"
-                + "    \"submitted_at\": \"2023-06-02\",\n"
-                + "    \"graded_at\": \"2023-07-20\",\n"
-                + "    \"type\": \"Master\",\n"
-                + "    \"program\": \"Masterstudium Steuern und Rechnungslegung\",\n"
-                + "    \"achieving_title\": \"Master of Arts\",\n"
-                + "    \"page_count\": \"98\",\n"
-                + "    \"keywords\": [\n"
-                + "      \"UGB\",\n"
-                + "      \"IFRS\",\n"
-                + "      \"Bilanzierung\",\n"
-                + "      \"Cloud\"\n"
-                + "    ],\n"
-                + "    \"allow_publish\": {\n"
-                + "      \"label\": \"Ich stimme der Veröffentlichung zu\",\n"
-                + "      \"value\": true\n"
-                + "    },\n"
-                + "    \"own_work\": {\n"
-                + "      \"label\": \"Das habe ich selbst verfasst\",\n"
-                + "      \"value\": true\n"
-                + "    },\n"
-                + "    \"is_blocking\": false,\n"
-                + "    \"blocking_length\": \"\",\n"
-                + "    \"blocking_description\": \"\"\n"
-                + "  }\n"
-                + "}\n"
-                + "";
+        String s = "{"
+                + "   \"status\":\"success\","
+                + "   \"message\":\"Found 1 thesis\","
+                + "   \"total\":null,"
+                + "   \"thesis\":{"
+                + "      \"student\":{"
+                + "         \"fullname\":\"NACHNAME Vorname\","
+                + "         \"firstname\":\"Vorname\","
+                + "         \"surname\":\"NACHNAME\","
+                + "         \"email\":\"name@mail.at\","
+                + "         \"role\":\"Student\","
+                + "         \"reviewer_role\":null,"
+                + "         \"student_fk\":123,"
+                + "         \"matricle\":1234567890,"
+                + "         \"employee_fk\":null"
+                + "      },"
+                + "      \"tid\":106,"
+                + "      \"grade_protocol_at\":\"2023-12-14T10:28:11\","
+                + "      \"degree_program\":\"Bachelorstudium Wirtschafts- und Sozialwissenschaften\","
+                + "      \"abstract_english\":null,"
+                + "      \"abstract_original\":null,"
+                + "      \"keywords\":["
+                + "         \"test 1\","
+                + "         \"test2\","
+                + "         \"test keyword 3\""
+                + "      ],"
+                + "      \"blocking_months\":null,"
+                + "      \"blocking_description\":null,"
+                + "      \"language\":\"German\","
+                + "      \"type\":\"Bachelorarbeit\","
+                + "      \"blocking_state\":{"
+                + "         \"tid\":1,"
+                + "         \"description\":\"no block is requested\","
+                + "         \"key\":\"NOT_REQUESTED\","
+                + "         \"state_order\":1"
+                + "      },"
+                + "      \"is_blocking\":false,"
+                + "      \"is_cumulative\":false,"
+                + "      \"cumulative_titles\":null,"
+                + "      \"state\":{"
+                + "         \"tid\":7,"
+                + "         \"description\":\"grade has been published, attendee certificate\","
+                + "         \"key\":\"GRADE_PUBLISHED\","
+                + "         \"state_order\":7"
+                + "      },"
+                + "      \"final_draft\":{"
+                + "         \"tid\":106,"
+                + "         \"thesis_tid\":106,"
+                + "         \"version\":1,"
+                + "         \"title_original\":\"Haupttitel\","
+                + "         \"title_english\":\"Main title\","
+                + "         \"legal_agreement\":["
+                + "            "
+                + "         ],"
+                + "         \"is_similarity_report\":true,"
+                + "         \"created_at\":\"2023-12-14T10:28:11\","
+                + "         \"archived_at\":null,"
+                + "         \"archived_reason\":null,"
+                + "         \"draft_pdf\":{"
+                + "            \"tid\":106,"
+                + "            \"filepath\":\"<path to pdf file>\","
+                + "            \"filename\":\"filename.pdf\","
+                + "            \"filename_orig\":\"filename.pdf\","
+                + "            \"filetype\":\".pdf\","
+                + "            \"filehash\":\"a hash\","
+                + "            \"downloaded_at\":null,"
+                + "            \"downloaded_by\":null"
+                + "         },"
+                + "         \"page_count\":null,"
+                + "         \"submitted_at\":\"2023-12-14T10:28:11\","
+                + "         \"similarity_scoring\":34.0,"
+                + "         \"similarity_submission_id\":\"38d06a03-96d5-4f25-8fc5-199af29d2bc8\","
+                + "         \"similarity_report_pdf_id\":\"9586b810-c30c-4b9a-bdfe-8ff5108d44f0\","
+                + "         \"similarity_report_pdf_file\":null,"
+                + "         \"similarity_state\":{"
+                + "            \"tid\":8,"
+                + "            \"description\":\"similarity report has been completed by turnitin\","
+                + "            \"key\":\"SIMILARITY_REPORT_PDF_COMPLETE\","
+                + "            \"state_order\":8"
+                + "         }"
+                + "      },"
+                + "      \"reviewers\":["
+                + "         {"
+                + "            \"fullname\":\"Reviewer complete name\","
+                + "            \"firstname\":\"Reviewer Firstname 1\","
+                + "            \"surname\":\"Reviewer Lastname 1\","
+                + "            \"email\":\"reviewer1@mail.at\","
+                + "            \"role\":\"BeurteilerIn\","
+                + "            \"reviewer_role\":{"
+                + "               \"role_id\":1,"
+                + "               \"name\":\"BeurteilerIn\","
+                + "               \"order\":1"
+                + "            },"
+                + "            \"student_fk\":null,"
+                + "            \"matricle\":null,"
+                + "            \"employee_fk\":1234"
+                + "         },"
+                + "         {"
+                + "            \"fullname\":\"Reviewer 2 complete name\","
+                + "            \"firstname\":\"Reviewer Firstname 2\","
+                + "            \"surname\":\"Reviewer Lastname 2\","
+                + "            \"email\":\"reviewer2@mail.at\","
+                + "            \"role\":\"BeurteilerIn\","
+                + "            \"reviewer_role\":{"
+                + "               \"role_id\":1,"
+                + "               \"name\":\"BeurteilerIn\","
+                + "               \"order\":1"
+                + "            },"
+                + "            \"student_fk\":null,"
+                + "            \"matricle\":null,"
+                + "            \"employee_fk\":5678"
+                + "         }"
+                + "      ],"
+                + "      \"shared_thesis_identifier\":null,"
+                + "      \"attachments\":["
+                + "         {"
+                + "            \"tid\":107,"
+                + "            \"filepath\":\"<atached pdf file>\","
+                + "            \"filename\":\"otherfile.pdf\","
+                + "            \"filename_orig\":\"otherfile.pdf\","
+                + "            \"filetype\":\".pdf\","
+                + "            \"filehash\":\"a hash\","
+                + "            \"downloaded_at\":null,"
+                + "            \"downloaded_by\":null"
+                + "         }"
+                + "      ],"
+                + "      \"coauthors\":null,"
+                + "      \"is_download_complete\":false"
+                + "   }"
+                + "}";
+
 
         return s;
     }
