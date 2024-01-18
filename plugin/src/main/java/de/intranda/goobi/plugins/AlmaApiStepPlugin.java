@@ -66,6 +66,7 @@ import ugh.dl.DigitalDocument;
 import ugh.dl.DocStruct;
 import ugh.dl.Fileformat;
 import ugh.dl.Metadata;
+import ugh.dl.MetadataGroupType;
 import ugh.dl.Prefs;
 import ugh.exceptions.MetadataTypeNotAllowedException;
 import ugh.exceptions.PreferencesException;
@@ -94,6 +95,8 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
     private transient List<AlmaApiCommand> commandList = new ArrayList<>();
     private transient List<EntryToSaveTemplate> entriesToSaveList = new ArrayList<>();
 
+
+    private    Prefs prefs;
     // create a custom response handler
     private static final ResponseHandler<String> RESPONSE_HANDLER = response -> {
         log.debug("------- STATUS --- LINE -------");
@@ -109,6 +112,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         this.step = step;
         this.process = step.getProzess();
         this.processId = process.getId();
+        prefs  = process.getRegelsatz().getPreferences();
 
         // read parameters from correct block in configuration file
         SubnodeConfiguration config = ConfigPlugins.getProjectAndStepConfig(title, step);
@@ -359,10 +363,8 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             case "property":
                 return saveProperty(entry);
             case "metadata":
-                return saveMetadata(entry);
             case "group":
-                // TODO
-                return true;
+                return saveMetadata(entry);
             default:
                 String message = "Ignoring unknown entry type: " + type + ".";
                 logBoth(processId, LogType.WARN, message);
@@ -446,6 +448,10 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             DigitalDocument digital = fileformat.getDigitalDocument();
             DocStruct logical = digital.getLogicalDocStruct();
             if ("group".equals(metadataTemplate.getType())) {
+                MetadataGroupType mgt = prefs.getMetadataGroupTypeByName(metadataTemplate.getName());
+
+
+
 
             } else {
                 List<String> metadataValues = AlmaApiCommand.getVariableValues(metadataTemplate.getValue());
@@ -508,7 +514,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      */
     private Metadata createNewMetadata(String mdTypeName, String value) throws MetadataTypeNotAllowedException {
         log.debug("creating new Metadata of type: " + mdTypeName);
-        Prefs prefs = process.getRegelsatz().getPreferences();
+
         Metadata md = new Metadata(prefs.getMetadataTypeByName(mdTypeName));
         md.setValue(value);
         return md;
