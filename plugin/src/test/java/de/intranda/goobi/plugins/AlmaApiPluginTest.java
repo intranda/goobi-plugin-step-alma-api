@@ -21,6 +21,9 @@ import org.goobi.beans.Ruleset;
 import org.goobi.beans.Step;
 import org.goobi.beans.User;
 import org.goobi.production.enums.PluginReturnValue;
+import org.jdom2.Document;
+import org.jdom2.Element;
+import org.jdom2.Namespace;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
@@ -35,6 +38,7 @@ import org.powermock.modules.junit4.PowerMockRunner;
 import de.sub.goobi.config.ConfigurationHelper;
 import de.sub.goobi.helper.Helper;
 import de.sub.goobi.helper.VariableReplacer;
+import de.sub.goobi.helper.XmlTools;
 import de.sub.goobi.helper.enums.StepStatus;
 import de.sub.goobi.metadaten.MetadatenHelper;
 import de.sub.goobi.persistence.managers.MetadataManager;
@@ -93,6 +97,28 @@ public class AlmaApiPluginTest {
         AlmaApiStepPlugin plugin = new AlmaApiStepPlugin();
         plugin.initialize(step, "something");
         assertEquals(PluginReturnValue.FINISH, plugin.run());
+
+        // open mets file
+        Namespace mets = Namespace.getNamespace("mets", "http://www.loc.gov/METS/");
+        Namespace mods = Namespace.getNamespace("mods", "http://www.loc.gov/mods/v3");
+        Namespace goobi = Namespace.getNamespace("goobi", "http://meta.goobi.org/v1.5.1/");
+        Path metaFile = Paths.get(processDirectory.getAbsolutePath(), "meta.xml");
+        Document doc = XmlTools.readDocumentFromFile(metaFile);
+        Element goobiElement = doc.getRootElement()
+                .getChild("dmdSec", mets)
+                .getChild("mdWrap", mets)
+                .getChild("xmlData", mets)
+                .getChild("mods", mods)
+                .getChild("extension", mods)
+                .getChild("goobi", goobi);
+        List<Element> children = goobiElement.getChildren();
+        assertEquals(13, children.size());
+
+        Element student = children.get(11);
+        assertEquals("Name", student.getChildren().get(0).getAttributeValue("name"));
+        assertEquals("fullname", student.getChildren().get(0).getValue());
+        assertEquals("StudentId", student.getChildren().get(1).getAttributeValue("name"));
+        assertEquals("matricle", student.getChildren().get(1).getValue());
     }
 
     @Before

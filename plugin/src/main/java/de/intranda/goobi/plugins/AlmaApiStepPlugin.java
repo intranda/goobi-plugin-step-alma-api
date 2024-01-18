@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Random;
 
@@ -66,6 +67,7 @@ import ugh.dl.DigitalDocument;
 import ugh.dl.DocStruct;
 import ugh.dl.Fileformat;
 import ugh.dl.Metadata;
+import ugh.dl.MetadataGroup;
 import ugh.dl.MetadataGroupType;
 import ugh.dl.Prefs;
 import ugh.exceptions.MetadataTypeNotAllowedException;
@@ -95,8 +97,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
     private transient List<AlmaApiCommand> commandList = new ArrayList<>();
     private transient List<EntryToSaveTemplate> entriesToSaveList = new ArrayList<>();
 
-
-    private    Prefs prefs;
+    private Prefs prefs;
     // create a custom response handler
     private static final ResponseHandler<String> RESPONSE_HANDLER = response -> {
         log.debug("------- STATUS --- LINE -------");
@@ -112,7 +113,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         this.step = step;
         this.process = step.getProzess();
         this.processId = process.getId();
-        prefs  = process.getRegelsatz().getPreferences();
+        prefs = process.getRegelsatz().getPreferences();
 
         // read parameters from correct block in configuration file
         SubnodeConfiguration config = ConfigPlugins.getProjectAndStepConfig(title, step);
@@ -191,7 +192,6 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         try {
             Fileformat fileformat = process.readMetadataFile();
             DigitalDocument dd = fileformat.getDigitalDocument();
-            Prefs prefs = process.getRegelsatz().getPreferences();
             VariableReplacer replacer = new VariableReplacer(dd, prefs, process, step);
 
             return replacer.replace(value);
@@ -316,9 +316,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                     }
                     // save the filteredValues
                     List<Object> targetValues = new ArrayList<>();
-                    filteredValues.stream()
-                    .filter(Objects::nonNull)
-                    .forEach(obj -> {
+                    filteredValues.stream().filter(Objects::nonNull).forEach(obj -> {
                         if (obj.getClass().isArray() || obj instanceof Collection) {
                             List<Object> objectValues = new ArrayList<>((Collection<?>) obj);
                             targetValues.addAll(objectValues);
@@ -449,10 +447,16 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             DocStruct logical = digital.getLogicalDocStruct();
             if ("group".equals(metadataTemplate.getType())) {
                 MetadataGroupType mgt = prefs.getMetadataGroupTypeByName(metadataTemplate.getName());
+                MetadataGroup grp = new MetadataGroup(mgt);
 
+                for (Entry<String, String> entry : metadataTemplate.getGroupMetadataMap().entrySet()) {
+                    Metadata md = new Metadata(prefs.getMetadataTypeByName(entry.getKey()));
+                    md.setValue(entry.getValue());
+                    grp.addMetadata(md);
 
+                }
 
-
+                logical.addMetadataGroup(grp);
             } else {
                 List<String> metadataValues = AlmaApiCommand.getVariableValues(metadataTemplate.getValue());
                 if ("each".equals(metadataTemplate.getChoice())) {
@@ -588,15 +592,11 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         for (Map.Entry<String, String> parameter : parameters.entrySet()) {
             String parameterName = parameter.getKey();
             String parameterValue = parameter.getValue();
-            urlBuilder.append(parameterName)
-            .append("=")
-            .append(parameterValue)
-            .append("&");
+            urlBuilder.append(parameterName).append("=").append(parameterValue).append("&");
         }
 
         // append the api key
-        urlBuilder.append("apikey=")
-        .append(apiKey);
+        urlBuilder.append("apikey=").append(apiKey);
 
         return urlBuilder.toString();
     }
@@ -612,8 +612,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * @return response as JSONObject, or null if any error occurred
      */
     private JSONObject runCommand(String method, String headerAccept, String headerContentType, String url, String body) {
-        return "get".equalsIgnoreCase(method) ? runCommandGet(url)
-                : runCommandNonGet(method, headerAccept, headerContentType, url, body);
+        return "get".equalsIgnoreCase(method) ? runCommandGet(url) : runCommandNonGet(method, headerAccept, headerContentType, url, body);
     }
 
     /**
