@@ -35,6 +35,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPatch;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
@@ -61,6 +62,7 @@ import de.sub.goobi.helper.exceptions.SwapException;
 import de.sub.goobi.persistence.managers.PropertyManager;
 import io.goobi.workflow.api.connection.HttpUtils;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import net.xeoh.plugins.base.annotations.PluginImplementation;
 import ugh.dl.DigitalDocument;
@@ -98,6 +100,10 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
     private transient List<EntryToSaveTemplate> entriesToSaveList = new ArrayList<>();
 
     private Prefs prefs;
+
+    @Setter
+    private boolean testmode = false;
+
     // create a custom response handler
     private static final ResponseHandler<String> RESPONSE_HANDLER = response -> {
         log.debug("------- STATUS --- LINE -------");
@@ -612,7 +618,8 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * @return response as JSONObject, or null if any error occurred
      */
     private JSONObject runCommand(String method, String headerAccept, String headerContentType, String url, String body) {
-        return "get".equalsIgnoreCase(method) ? runCommandGet(url) : runCommandNonGet(method, headerAccept, headerContentType, url, body);
+        return "get".equalsIgnoreCase(method) ? runCommandGet(headerAccept, headerContentType, url)
+                : runCommandNonGet(method, headerAccept, headerContentType, url, body);
     }
 
     /**
@@ -623,36 +630,38 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * @param url request url
      * @return response as JSONObject, or null if any error occurred
      */
-    private JSONObject runCommandGet(String url) {
-        String response = HttpUtils.getStringFromUrl(url);
-        try {
-            return JSONUtils.getJSONObjectFromString(response);
-        } catch (ParseException e) {
-            log.error(e);
-        }
+    private JSONObject runCommandGet(String headerAccept, String headerContentType, String url) {
+        if (testmode) {
+            String response = HttpUtils.getStringFromUrl(url);
+            try {
+                return JSONUtils.getJSONObjectFromString(response);
+            } catch (ParseException e) {
+                log.error(e);
+            }
+        } else {
+            HttpGet httpGet = new HttpGet(url);
+            try (CloseableHttpClient client = HttpClients.createDefault()) {
+                httpGet.setHeader("Accept", headerAccept);
+                httpGet.setHeader("Content-type", headerContentType);
 
-        //        HttpGet httpGet = new HttpGet(url);
-        //        try (CloseableHttpClient client = HttpClients.createDefault()) {
-        //            httpGet.setHeader("Accept", headerAccept);
-        //            httpGet.setHeader("Content-type", headerContentType);
-        //
-        //            String message = "Executing request " + httpGet.getRequestLine();
-        //            logBoth(processId, LogType.INFO, message);
-        //
-        //            String responseBody = client.execute(httpGet, RESPONSE_HANDLER);
-        //            log.debug("------- response body -------");
-        //            log.debug(responseBody);
-        //            log.debug("------- response body -------");
-        //
-        //            return headerAccept.endsWith("json") ? JSONUtils.getJSONObjectFromString(responseBody) : null;
-        //
-        //        } catch (IOException e) {
-        //            String message = "IOException caught while executing request: " + httpGet.getRequestLine();
-        //            logBoth(processId, LogType.ERROR, message);
-        //        } catch (ParseException e) {
-        //            String message = "ParseException caught while executing request: " + httpGet.getRequestLine();
-        //            logBoth(processId, LogType.ERROR, message);
-        //        }
+                String message = "Executing request " + httpGet.getRequestLine();
+                logBoth(processId, LogType.INFO, message);
+
+                String responseBody = client.execute(httpGet, RESPONSE_HANDLER);
+                log.debug("------- response body -------");
+                log.debug(responseBody);
+                log.debug("------- response body -------");
+
+                return headerAccept.endsWith("json") ? JSONUtils.getJSONObjectFromString(responseBody) : null;
+
+            } catch (IOException e) {
+                String message = "IOException caught while executing request: " + httpGet.getRequestLine();
+                logBoth(processId, LogType.ERROR, message);
+            } catch (ParseException e) {
+                String message = "ParseException caught while executing request: " + httpGet.getRequestLine();
+                logBoth(processId, LogType.ERROR, message);
+            }
+        }
         return null; //NOSONAR
     }
 

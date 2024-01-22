@@ -95,6 +95,7 @@ public class AlmaApiPluginTest {
     @Test
     public void testRun() {
         AlmaApiStepPlugin plugin = new AlmaApiStepPlugin();
+        plugin.setTestmode(true);
         plugin.initialize(step, "something");
         assertEquals(PluginReturnValue.FINISH, plugin.run());
 
