@@ -32,6 +32,7 @@ import java.util.Random;
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.configuration.SubnodeConfiguration;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.http.Consts;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
@@ -39,6 +40,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPatch;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
@@ -693,8 +695,11 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
         try (CloseableHttpClient client = HttpClients.createDefault()) {
             httpBase.setHeader("Accept", headerAccept);
-            httpBase.setHeader("Content-type", headerContentType);
-            httpBase.setEntity(new StringEntity(body));
+
+            StringEntity entity = new StringEntity(body, ContentType.create(headerContentType, Consts.UTF_8));
+            httpBase.setEntity(entity);
+
+            httpBase.setHeader("Content-Type", headerContentType);
 
             String message = "Executing request " + httpBase.getRequestLine();
             logBoth(processId, LogType.INFO, message);

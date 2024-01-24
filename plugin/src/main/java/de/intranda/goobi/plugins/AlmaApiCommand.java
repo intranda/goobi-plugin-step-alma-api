@@ -485,9 +485,9 @@ public class AlmaApiCommand {
     private String wrapBodyValueJSON(String content, String wrapper) {
         StringBuilder sb = new StringBuilder("{\"");
         sb.append(wrapper)
-        .append("\": ")
-        .append(content)
-        .append("}");
+                .append("\": ")
+                .append(content)
+                .append("}");
 
         return sb.toString();
     }
@@ -519,11 +519,11 @@ public class AlmaApiCommand {
     private String wrapBodyValueXML(String content, String wrapper) {
         StringBuilder sb = new StringBuilder("<");
         sb.append(wrapper)
-        .append(">")
-        .append(content)
-        .append("</")
-        .append(wrapper)
-        .append(">");
+                .append(">")
+                .append(content)
+                .append("</")
+                .append(wrapper)
+                .append(">");
 
         return sb.toString();
     }
