@@ -604,7 +604,9 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         }
 
         // append the api key
-        urlBuilder.append("apikey=").append(apiKey);
+        if (StringUtils.isNotBlank(apiKey)) {
+            urlBuilder.append("apikey=").append(apiKey);
+        }
 
         return urlBuilder.toString();
     }
@@ -647,7 +649,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                 httpGet.setHeader("Content-type", headerContentType);
 
                 String message = "Executing request " + httpGet.getRequestLine();
-                logBoth(processId, LogType.INFO, message);
+                log.debug( message);
 
                 String responseBody = client.execute(httpGet, RESPONSE_HANDLER);
                 log.debug("------- response body -------");
