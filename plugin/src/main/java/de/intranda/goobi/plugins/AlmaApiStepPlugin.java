@@ -28,6 +28,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Random;
+import java.util.regex.MatchResult;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.configuration.SubnodeConfiguration;
@@ -75,8 +78,6 @@ import ugh.dl.MetadataGroup;
 import ugh.dl.MetadataGroupType;
 import ugh.dl.Prefs;
 import ugh.exceptions.MetadataTypeNotAllowedException;
-import ugh.exceptions.PreferencesException;
-import ugh.exceptions.ReadException;
 import ugh.exceptions.UGHException;
 
 @PluginImplementation
@@ -106,6 +107,8 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
     @Setter
     private boolean testmode = false;
 
+    private transient VariableReplacer replacer;
+
     // create a custom response handler
     private static final ResponseHandler<String> RESPONSE_HANDLER = response -> {
         log.debug("------- STATUS --- LINE -------");
@@ -122,6 +125,14 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         this.process = step.getProzess();
         this.processId = process.getId();
         prefs = process.getRegelsatz().getPreferences();
+
+        try {
+            Fileformat fileformat = process.readMetadataFile();
+            DigitalDocument dd = fileformat.getDigitalDocument();
+            replacer = new VariableReplacer(dd, prefs, process, step);
+        } catch (UGHException | IOException | SwapException e) {
+            log.error(e);
+        }
 
         // read parameters from correct block in configuration file
         SubnodeConfiguration config = ConfigPlugins.getProjectAndStepConfig(title, step);
@@ -197,23 +208,8 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
         String value = variableConfig.getString("@value");
 
-        try {
-            Fileformat fileformat = process.readMetadataFile();
-            DigitalDocument dd = fileformat.getDigitalDocument();
-            VariableReplacer replacer = new VariableReplacer(dd, prefs, process, step);
+        return replacer.replace(value);
 
-            return replacer.replace(value);
-
-        } catch (ReadException | IOException | SwapException e) {
-            String message = "Failed to read the metadata file.";
-            logBoth(processId, LogType.ERROR, message);
-            return "";
-
-        } catch (PreferencesException e) {
-            String message = "PreferencesException caught while trying to get the digital document.";
-            logBoth(processId, LogType.ERROR, message);
-            return "";
-        }
     }
 
     @Override
@@ -290,6 +286,15 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             String headerContentType = command.getHeaderContentType(); // default application/json, unless in <body> configured
             String bodyValue = command.getBodyValue();
             log.debug("bodyValue = \n" + bodyValue);
+
+            bodyValue = replacer.replace(bodyValue);
+
+            // replace variables in file {$MMS_ID} -> 99724 ....
+            for (Matcher m = Pattern.compile("(\\{\\$[^\\{\\}]*\\})").matcher(bodyValue); m.find();) {
+                MatchResult r = m.toMatchResult();
+                String value = AlmaApiCommand.getVariableValues(r.group()).get(0);
+                bodyValue = bodyValue.replace(r.group(), value);
+            }
 
             Map<String, String> parameters = command.getParametersMap();
             List<String> endpoints = command.getEndpoints();
@@ -649,7 +654,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                 httpGet.setHeader("Content-type", headerContentType);
 
                 String message = "Executing request " + httpGet.getRequestLine();
-                log.debug( message);
+                log.debug(message);
 
                 String responseBody = client.execute(httpGet, RESPONSE_HANDLER);
                 log.debug("------- response body -------");
@@ -660,10 +665,11 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
             } catch (IOException e) {
                 String message = "IOException caught while executing request: " + httpGet.getRequestLine();
-                logBoth(processId, LogType.ERROR, message);
+                log.error(message);
             } catch (ParseException e) {
                 String message = "ParseException caught while executing request: " + httpGet.getRequestLine();
-                logBoth(processId, LogType.ERROR, message);
+                log.error(message);
+
             }
         }
         return null; //NOSONAR
@@ -704,22 +710,20 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             httpBase.setHeader("Content-Type", headerContentType);
 
             String message = "Executing request " + httpBase.getRequestLine();
-            logBoth(processId, LogType.INFO, message);
+            log.debug(message);
 
             String responseBody = client.execute(httpBase, RESPONSE_HANDLER);
             log.debug("------- response body -------");
             log.debug(responseBody);
             log.debug("------- response body -------");
-
             return headerAccept.endsWith("json") ? JSONUtils.getJSONObjectFromString(responseBody) : null;
-
         } catch (IOException e) {
             String message = "IOException caught while executing request: " + httpBase.getRequestLine();
-            logBoth(processId, LogType.ERROR, message);
+            log.error(message);
 
         } catch (ParseException e) {
             String message = "ParseException caught while executing request: " + httpBase.getRequestLine();
-            logBoth(processId, LogType.ERROR, message);
+            log.error(message);
         }
         return null; //NOSONAR
     }
