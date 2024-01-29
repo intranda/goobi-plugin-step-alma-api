@@ -297,6 +297,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             }
 
             Map<String, String> parameters = command.getParametersMap();
+            Map<String, String> headerParameters = command.getHeaderParameters();
             List<String> endpoints = command.getEndpoints();
             List<Target> targetVariablePathList = command.getTargets();
 
@@ -311,7 +312,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             for (String endpoint : endpoints) {
                 // run the command to get the JSONObject
                 String requestUrl = createRequestUrl(endpoint, parameters);
-                JSONObject jsonObject = runCommand(method, headerAccept, headerContentType, requestUrl, bodyValue);
+                JSONObject jsonObject = runCommand(method, headerAccept, headerContentType, requestUrl, bodyValue, headerParameters);
                 if (jsonObject == null) {
                     continue;
                 }
@@ -626,9 +627,10 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * @param body JSON or XML body that is to be sent by request,
      * @return response as JSONObject, or null if any error occurred
      */
-    private JSONObject runCommand(String method, String headerAccept, String headerContentType, String url, String body) {
-        return "get".equalsIgnoreCase(method) ? runCommandGet(headerAccept, headerContentType, url)
-                : runCommandNonGet(method, headerAccept, headerContentType, url, body);
+    private JSONObject runCommand(String method, String headerAccept, String headerContentType, String url, String body,
+            Map<String, String> headerParameters) {
+        return "get".equalsIgnoreCase(method) ? runCommandGet(headerAccept, headerContentType, url, headerParameters)
+                : runCommandNonGet(method, headerAccept, headerContentType, url, body, headerParameters);
     }
 
     /**
@@ -639,7 +641,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * @param url request url
      * @return response as JSONObject, or null if any error occurred
      */
-    private JSONObject runCommandGet(String headerAccept, String headerContentType, String url) {
+    private JSONObject runCommandGet(String headerAccept, String headerContentType, String url, Map<String, String> headerParameters) {
         if (testmode) {
             String response = HttpUtils.getStringFromUrl(url);
             try {
@@ -652,6 +654,10 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             try (CloseableHttpClient client = HttpClients.createDefault()) {
                 httpGet.setHeader("Accept", headerAccept);
                 httpGet.setHeader("Content-type", headerContentType);
+
+                for (Entry<String, String> entry : headerParameters.entrySet()) {
+                    httpGet.setHeader(entry.getKey(), entry.getValue());
+                }
 
                 String message = "Executing request " + httpGet.getRequestLine();
                 log.debug(message);
@@ -685,7 +691,8 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * @param body JSON or XML body that is to be sent by request
      * @return response as JSONObject, or null if any error occurred
      */
-    private JSONObject runCommandNonGet(String method, String headerAccept, String headerContentType, String url, String body) {
+    private JSONObject runCommandNonGet(String method, String headerAccept, String headerContentType, String url, String body,
+            Map<String, String> headerParameters) {
         HttpEntityEnclosingRequestBase httpBase;
         switch (method.toLowerCase()) {
             case "put":
@@ -703,6 +710,10 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
         try (CloseableHttpClient client = HttpClients.createDefault()) {
             httpBase.setHeader("Accept", headerAccept);
+
+            for (Entry<String, String> entry : headerParameters.entrySet()) {
+                httpBase.setHeader(entry.getKey(), entry.getValue());
+            }
 
             StringEntity entity = new StringEntity(body, ContentType.create(headerContentType, Consts.UTF_8));
             httpBase.setEntity(entity);

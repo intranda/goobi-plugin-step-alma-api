@@ -62,6 +62,9 @@ public class AlmaApiCommand {
     @Getter
     private Map<String, String> parametersMap = new HashMap<>();
     @Getter
+    private Map<String, String> headerParameters = new HashMap<>();
+
+    @Getter
     private String filterKey;
     @Getter
     private String filterFallbackKey;
@@ -93,6 +96,13 @@ public class AlmaApiCommand {
             String parameterName = parameterConfig.getString("@name");
             String parameterValue = parameterConfig.getString("@value");
             parametersMap.put(parameterName, parameterValue);
+        }
+
+        List<HierarchicalConfiguration> headerConfigs = config.configurationsAt("header");
+        for (HierarchicalConfiguration parameterConfig : headerConfigs) {
+            String parameterName = parameterConfig.getString("@name");
+            String parameterValue = parameterConfig.getString("@value");
+            headerParameters.put(parameterName, parameterValue);
         }
 
         try {
