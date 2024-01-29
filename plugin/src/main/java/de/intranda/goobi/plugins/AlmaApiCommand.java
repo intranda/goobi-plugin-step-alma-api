@@ -668,7 +668,7 @@ public class AlmaApiCommand {
                 }
             } else if (obj instanceof JSONObject) {
                 JSONObject json = (JSONObject) obj;
-                System.out.println(json.toString());
+                results.add(json.toString());
             } else {
                 results.add(String.valueOf(obj));
             }

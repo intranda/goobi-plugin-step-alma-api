@@ -308,7 +308,6 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
             String updateVariableName = command.getUpdateVariableName();
             Map<String, String> updateVariablePathValueMap = command.getUpdateVariablePathValueMap();
-
             for (String endpoint : endpoints) {
                 // run the command to get the JSONObject
                 String requestUrl = createRequestUrl(endpoint, parameters);
