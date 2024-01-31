@@ -54,6 +54,7 @@ public class AlmaApiCommand {
     // pattern that matches the xml comments <!-- ... -->
     private static final String XML_COMMENT_PATTERN = "<!--[\\s\\S]*?-->";
     // static variables created before creations of all commands or created by previous commands, shared by all commands
+    @Getter
     private static final Map<String, List<Object>> STATIC_VARIABLES_MAP = new HashMap<>();
     @Getter
     private List<String> endpoints;

@@ -21,10 +21,12 @@ package de.intranda.goobi.plugins;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
+import org.json.JSONArray;
 
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.InvalidJsonException;
@@ -147,4 +149,31 @@ public class JSONUtils {
         return results;
     }
 
+    public static String getValueAsString(Object value) {
+        String anwer = null;
+        if (value instanceof String) {
+            anwer = (String) value;
+        } else if (value instanceof Integer) {
+            anwer = ((Integer) value).toString();
+        } else if (value instanceof Boolean) {
+            return (boolean) value ? "true" : "false";
+        } else if (value instanceof LinkedHashMap) {
+            @SuppressWarnings("unchecked")
+            Map<String, String> map = (Map<String, String>) value;
+            for (String key : map.keySet()) {
+                log.error("not mapped: " + key + ": " + map.get(key));
+            }
+        } else if (value instanceof JSONArray) {
+            JSONArray array = (JSONArray) value;
+            if (!array.isEmpty()) {
+                return (String) array.get(0);
+            }
+        }
+
+        else {
+            log.error("Type not mapped: " + value.getClass());
+        }
+
+        return anwer;
+    }
 }

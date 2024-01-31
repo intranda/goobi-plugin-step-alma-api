@@ -453,17 +453,24 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             DigitalDocument digital = fileformat.getDigitalDocument();
             DocStruct logical = digital.getLogicalDocStruct();
             if ("group".equals(metadataTemplate.getType())) {
-                MetadataGroupType mgt = prefs.getMetadataGroupTypeByName(metadataTemplate.getName());
-                MetadataGroup grp = new MetadataGroup(mgt);
+                List<Object> records = AlmaApiCommand.getSTATIC_VARIABLES_MAP().get(metadataTemplate.getValue());
+                for (Object rec : records) {
+                    MetadataGroupType mgt = prefs.getMetadataGroupTypeByName(metadataTemplate.getName());
+                    MetadataGroup grp = new MetadataGroup(mgt);
 
-                for (Entry<String, String> entry : metadataTemplate.getGroupMetadataMap().entrySet()) {
-                    Metadata md = new Metadata(prefs.getMetadataTypeByName(entry.getKey()));
-                    md.setValue(entry.getValue());
-                    grp.addMetadata(md);
+                    for (Entry<String, String> entry : metadataTemplate.getGroupMetadataMap().entrySet()) {
+                        String path = entry.getValue();
+                        List<Object> values = JSONUtils.getValuesFromSourceGeneral(path, rec);
+                        for (Object val : values) {
+                            Metadata md = new Metadata(prefs.getMetadataTypeByName(entry.getKey()));
 
+                            md.setValue(JSONUtils.getValueAsString(val));
+                            grp.addMetadata(md);
+                        }
+                    }
+
+                    logical.addMetadataGroup(grp);
                 }
-
-                logical.addMetadataGroup(grp);
             } else {
                 List<String> metadataValues = AlmaApiCommand.getVariableValues(metadataTemplate.getValue());
                 if ("each".equals(metadataTemplate.getChoice())) {
@@ -477,7 +484,9 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                 }
             }
             process.writeMetadataFile(fileformat);
-        } catch (UGHException | IOException | SwapException e) {
+        } catch (UGHException | IOException |
+
+                SwapException e) {
             String message = "Failed to update the metadata file.";
             logBoth(processId, LogType.ERROR, message);
             return false;

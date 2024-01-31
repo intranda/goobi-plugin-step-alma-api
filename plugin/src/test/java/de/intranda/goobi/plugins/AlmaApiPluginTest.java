@@ -126,9 +126,9 @@ public class AlmaApiPluginTest {
 
         Element student = children.get(15);
         assertEquals("Name", student.getChildren().get(0).getAttributeValue("name"));
-        assertEquals("fullname", student.getChildren().get(0).getValue());
+        assertEquals("NACHNAME Vorname", student.getChildren().get(0).getValue());
         assertEquals("StudentId", student.getChildren().get(1).getAttributeValue("name"));
-        assertEquals("matricle", student.getChildren().get(1).getValue());
+        assertEquals("1234567890", student.getChildren().get(1).getValue());
     }
 
     @Before
