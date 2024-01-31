@@ -57,8 +57,8 @@ import org.goobi.production.enums.PluginReturnValue;
 import org.goobi.production.enums.PluginType;
 import org.goobi.production.enums.StepReturnValue;
 import org.goobi.production.plugin.interfaces.IStepPluginVersion2;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.ParseException;
+
+import com.jayway.jsonpath.InvalidJsonException;
 
 import de.sub.goobi.config.ConfigPlugins;
 import de.sub.goobi.helper.Helper;
@@ -76,6 +76,8 @@ import ugh.dl.Fileformat;
 import ugh.dl.Metadata;
 import ugh.dl.MetadataGroup;
 import ugh.dl.MetadataGroupType;
+import ugh.dl.MetadataType;
+import ugh.dl.Person;
 import ugh.dl.Prefs;
 import ugh.exceptions.MetadataTypeNotAllowedException;
 import ugh.exceptions.UGHException;
@@ -301,25 +303,18 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             List<String> endpoints = command.getEndpoints();
             List<Target> targetVariablePathList = command.getTargets();
 
-            String filterKey = command.getFilterKey();
-            String filterFallbackKey = command.getFilterFallbackKey();
-            String filterValue = command.getFilterValue();
-            String filterAlternativeOption = command.getFilterAlternativeOption();
-
             String updateVariableName = command.getUpdateVariableName();
-            Map<String, String> updateVariablePathValueMap = command.getUpdateVariablePathValueMap();
             for (String endpoint : endpoints) {
                 // run the command to get the JSONObject
                 String requestUrl = createRequestUrl(endpoint, parameters);
-                JSONObject jsonObject = runCommand(method, headerAccept, headerContentType, requestUrl, bodyValue, headerParameters);
+                Object jsonObject = runCommand(method, headerAccept, headerContentType, requestUrl, bodyValue, headerParameters);
                 if (jsonObject == null) {
                     continue;
                 }
 
                 // jsonObject is not null, process it
                 // <filter> and <target>
-                Map<String, List<Object>> filteredTargetsMap = JSONUtils.getFilteredValuesFromSource(targetVariablePathList, filterKey,
-                        filterFallbackKey, filterValue, filterAlternativeOption, jsonObject);
+                Map<String, List<Object>> filteredTargetsMap = JSONUtils.getFilteredValuesFromSource(targetVariablePathList, jsonObject);
 
                 for (Map.Entry<String, List<Object>> filteredTargets : filteredTargetsMap.entrySet()) {
                     String targetVariable = filteredTargets.getKey();
@@ -344,8 +339,6 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                     }
                 }
 
-                // <update>
-                JSONUtils.updateJSONObjectOrArray(updateVariablePathValueMap, jsonObject); // <- jsonObject will be possibly modified here
                 boolean staticVariablesUpdated = AlmaApiCommand.updateStaticVariablesMap(updateVariableName, jsonObject);
                 if (!staticVariablesUpdated) {
                     log.debug("static variables map was not successfully updated");
@@ -357,6 +350,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             // any kind of exception should stop further steps, e.g. NullPointerException
             String message = "Exception caught while running commands: " + e.toString();
             logBoth(processId, LogType.ERROR, message);
+            log.error(e);
             return false;
         }
 
@@ -474,12 +468,12 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                 List<String> metadataValues = AlmaApiCommand.getVariableValues(metadataTemplate.getValue());
                 if ("each".equals(metadataTemplate.getChoice())) {
                     for (String mdValue : metadataValues) {
-                        addMetadata(metadataTemplate, mdTypeName, logical, mdValue);
+                        addMetadata(mdTypeName, logical, mdValue);
                     }
                 } else {
                     // determine metadata value according to the configured choice
                     String mdValue = getEntryValue(metadataValues, metadataTemplate.getChoice());
-                    addMetadata(metadataTemplate, mdTypeName, logical, mdValue);
+                    updateMetadata(metadataTemplate, mdTypeName, logical, mdValue);
                 }
             }
             process.writeMetadataFile(fileformat);
@@ -492,14 +486,34 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         return true;
     }
 
-    private void addMetadata(EntryToSaveTemplate metadataTemplate, String mdTypeName, DocStruct logical, String mdValue)
+    private void updateMetadata(EntryToSaveTemplate metadataTemplate, String mdTypeName, DocStruct logical, String mdValue)
             throws MetadataTypeNotAllowedException {
         Metadata oldMd = metadataTemplate.isOverwrite() ? findExistingMetadata(logical, mdTypeName) : null;
-        Metadata newMd = createNewMetadata(mdTypeName, mdValue);
         if (oldMd != null) {
-            logical.changeMetadata(oldMd, newMd);
+            oldMd.setValue(mdValue);
         } else {
+            Metadata newMd = createNewMetadata(mdTypeName, mdValue);
             logical.addMetadata(newMd);
+        }
+    }
+
+    private void addMetadata(String mdTypeName, DocStruct logical, String mdValue) throws MetadataTypeNotAllowedException {
+
+        MetadataType type = prefs.getMetadataTypeByName(mdTypeName);
+        if (type.getIsPerson()) {
+            Person p = new Person(type);
+            if (mdValue.contains(",")) {
+                String[] parts = mdValue.split(",");
+                p.setLastname(parts[0]);
+                p.setFirstname(parts[1]);
+            } else {
+                p.setLastname(mdValue);
+            }
+            logical.addPerson(p);
+        } else {
+            Metadata md = new Metadata(type);
+            md.setValue(mdValue);
+            logical.addMetadata(md);
         }
     }
 
@@ -626,7 +640,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * @param body JSON or XML body that is to be sent by request,
      * @return response as JSONObject, or null if any error occurred
      */
-    private JSONObject runCommand(String method, String headerAccept, String headerContentType, String url, String body,
+    private Object runCommand(String method, String headerAccept, String headerContentType, String url, String body,
             Map<String, String> headerParameters) {
         return "get".equalsIgnoreCase(method) ? runCommandGet(headerAccept, headerContentType, url, headerParameters)
                 : runCommandNonGet(method, headerAccept, headerContentType, url, body, headerParameters);
@@ -640,12 +654,12 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * @param url request url
      * @return response as JSONObject, or null if any error occurred
      */
-    private JSONObject runCommandGet(String headerAccept, String headerContentType, String url, Map<String, String> headerParameters) {
+    private Object runCommandGet(String headerAccept, String headerContentType, String url, Map<String, String> headerParameters) {
         if (testmode) {
             String response = HttpUtils.getStringFromUrl(url);
             try {
                 return JSONUtils.getJSONObjectFromString(response);
-            } catch (ParseException e) {
+            } catch (InvalidJsonException e) {
                 log.error(e);
             }
         } else {
@@ -671,7 +685,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             } catch (IOException e) {
                 String message = "IOException caught while executing request: " + httpGet.getRequestLine();
                 log.error(message);
-            } catch (ParseException e) {
+            } catch (InvalidJsonException e) {
                 String message = "ParseException caught while executing request: " + httpGet.getRequestLine();
                 log.error(message);
 
@@ -690,7 +704,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * @param body JSON or XML body that is to be sent by request
      * @return response as JSONObject, or null if any error occurred
      */
-    private JSONObject runCommandNonGet(String method, String headerAccept, String headerContentType, String url, String body,
+    private Object runCommandNonGet(String method, String headerAccept, String headerContentType, String url, String body,
             Map<String, String> headerParameters) {
         HttpEntityEnclosingRequestBase httpBase;
         switch (method.toLowerCase()) {
@@ -731,7 +745,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             String message = "IOException caught while executing request: " + httpBase.getRequestLine();
             log.error(message);
 
-        } catch (ParseException e) {
+        } catch (InvalidJsonException e) {
             String message = "ParseException caught while executing request: " + httpBase.getRequestLine();
             log.error(message);
         }

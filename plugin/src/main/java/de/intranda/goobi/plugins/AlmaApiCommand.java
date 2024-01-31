@@ -656,11 +656,12 @@ public class AlmaApiCommand {
      */
     public static List<String> getVariableValues(String key) {
         if (!STATIC_VARIABLES_MAP.containsKey(key)) {
-            return Arrays.asList(key);
+            return Arrays.asList("");
         }
         List<Object> data = STATIC_VARIABLES_MAP.get(key);
         List<String> results = new ArrayList<>();
         for (Object obj : data) {
+
             if (obj instanceof JSONArray) {
                 JSONArray array = (JSONArray) obj;
                 for (Object object : array.toArray()) {

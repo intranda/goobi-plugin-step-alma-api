@@ -20,24 +20,66 @@
         	<mms_id>{$MMS_ID}</mms_id>
         	<parameter name="normalization" value="43588" />
         	
-        	<target var="ITEM_PID" path="thesis.tid" />
-        	
-        
+        	<target var="ITEM_PID" path="thesis.tid" />          
             
+            <target var="TITLE" path="thesis.final_draft.title_original" />
+            <target var="TITLE_ENGLISH" path="thesis.final_draft.title_english" />
+            <target var="EXAM_DATE" path="thesis.grade_protocol_at" />
+            <target var="DEGREE_PROGRAM" path="thesis.degree_program" />
+            <target var="ABSTRACT_ENGLISH" path="thesis.abstract_english" />
+            <target var="ABSTRACT_ORIGINAL" path="thesis.abstract_original" />
+            <target var="LANGUAGE" path="thesis.language" />
+            <target var="TYPE" path="thesis.type" />
+            <target var="KEYWORDS" path="thesis.keywords" />
+            <target var="BLOCKING_MONTHS" path="thesis.blocking_months" />
+            <target var="BLOCKING_DESCRIPTION" path="thesis.blocking_description" />
+            <target var="SUBMITTED_AT" path="thesis.final_draft.submitted_at" />
             <target var="STUDENT" path="thesis.student" type="object" />
+            <target var="REVIEWER_FIRST_NAME" path="thesis.reviewers[*].firstname" />
+            <target var="REVIEWER_LAST_NAME" path="thesis.reviewers[*].surname" />
+            
+            <target var="DRAFT_ID" path="thesis.final_draft.draft_pdf.tid" />
+            <target var="DRAFT_HASH" path="thesis.final_draft.draft_pdf.filehash" />
+
+            <target var="ATTACHMENT_ID" path="thesis.attachments[*].tid" />
+            <target var="ATTACHMENT_HASH" path="thesis.attachments[*].filehash" />
+            
+            
         </command>
         
       
         
         <save type="property" name="item_pid" value="{$ITEM_PID}" choice="first" overwrite="true" />
-        <save type="metadata" name="CatalogIDDigital" value="{$MMS_ID}" choice="first" overwrite="true" />
+
+
+        <save type="metadata" name="ThesisId" value="{$ITEM_PID}" choice="first" overwrite="true" />
+        
+        
+        
+        
+        <save type="metadata" name="TitleDocMain" value="{$TITLE}" choice="first" overwrite="true" />
+        <save type="metadata" name="TitleDocParallel" value="{$TITLE_ENGLISH}" choice="first" overwrite="true" />
+        <save type="metadata" name="ExamDate" value="{$EXAM_DATE}" choice="first" overwrite="true" />
+        <save type="metadata" name="ThesisType" value="{$TYPE}" choice="first" overwrite="true" />
+        <save type="metadata" name="CourseOfStudy" value="{$DEGREE_PROGRAM}" choice="first" overwrite="true" />
+        <save type="metadata" name="AbstractEng" value="{$ABSTRACT_ENGLISH}" choice="first" overwrite="true" />
+        <save type="metadata" name="DocLanguage" value="{$LANGUAGE}" choice="first" overwrite="true" />
+        <save type="metadata" name="SubmissionDate" value="{$SUBMITTED_AT}" choice="first" overwrite="true" />
+        <save type="metadata" name="AuthorSubjectTopicEng" value="{$KEYWORDS}" choice="each" overwrite="false" />
         
         
         <save type="group" name="Student" value="{$STUDENT}" choice="each" overwrite="true" format="">
             <entry name="Name" path="fullname" />
             <entry name="StudentId" path="matricle" />
-            
         </save>
+
+        
+        <save type="property" name="DraftID" value="{$DRAFT_ID}" overwrite="true" />
+        <save type="property" name="DraftHash" value="{$DRAFT_HASH}" overwrite="true" />
+
+        <save type="property" name="AttachmentID" value="{$ATTACHMENT_ID}" choice=":," overwrite="true" />
+        <save type="property" name="AttachmentHash" value="{$ATTACHMENT_HASH}" choice=":," overwrite="true" />
+        
     </config>
     
     

@@ -51,7 +51,7 @@ import ugh.fileformats.mets.MetsMods;
 
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({ MetadatenHelper.class, VariableReplacer.class, ConfigurationHelper.class, ProcessManager.class, MetadataManager.class, Helper.class,
-    HttpUtils.class, PropertyManager.class })
+        HttpUtils.class, PropertyManager.class })
 @PowerMockIgnore({ "javax.management.*", "javax.xml.*", "org.xml.*", "org.w3c.*", "javax.net.ssl.*", "jdk.internal.reflect.*" })
 public class AlmaApiPluginTest {
 
@@ -113,9 +113,18 @@ public class AlmaApiPluginTest {
                 .getChild("extension", mods)
                 .getChild("goobi", goobi);
         List<Element> children = goobiElement.getChildren();
-        assertEquals(13, children.size());
+        assertEquals(17, children.size());
 
-        Element student = children.get(11);
+        //        for (int i = 0; i < 17; i++) {
+        //            Element element = children.get(i);
+        //            System.out.println(i + " : " + element.getAttributeValue("name") + " - " + element.getValue());
+        //        }
+
+        Element thesisID = children.get(14);
+        assertEquals("ThesisId", thesisID.getAttributeValue("name"));
+        assertEquals("106", thesisID.getValue());
+
+        Element student = children.get(15);
         assertEquals("Name", student.getChildren().get(0).getAttributeValue("name"));
         assertEquals("fullname", student.getChildren().get(0).getValue());
         assertEquals("StudentId", student.getChildren().get(1).getAttributeValue("name"));
@@ -181,18 +190,40 @@ public class AlmaApiPluginTest {
         EasyMock.expect(MetadatenHelper.getMetaFileType(EasyMock.anyString())).andReturn("mets").anyTimes();
         EasyMock.expect(MetadatenHelper.getFileformatByName(EasyMock.anyString(), EasyMock.anyObject())).andReturn(ff).anyTimes();
         EasyMock.expect(MetadatenHelper.getMetadataOfFileformat(EasyMock.anyObject(), EasyMock.anyBoolean()))
-        .andReturn(Collections.emptyMap())
-        .anyTimes();
+                .andReturn(Collections.emptyMap())
+                .anyTimes();
         PowerMock.replay(MetadatenHelper.class);
 
         PowerMock.mockStatic(MetadataManager.class);
         MetadataManager.updateMetadata(1, Collections.emptyMap());
+
+        MetadataManager.updateMetadata(1, Collections.emptyMap());
+        MetadataManager.updateMetadata(1, Collections.emptyMap());
+        MetadataManager.updateMetadata(1, Collections.emptyMap());
+        MetadataManager.updateMetadata(1, Collections.emptyMap());
+        MetadataManager.updateMetadata(1, Collections.emptyMap());
+        MetadataManager.updateMetadata(1, Collections.emptyMap());
+        MetadataManager.updateMetadata(1, Collections.emptyMap());
+        MetadataManager.updateMetadata(1, Collections.emptyMap());
+        MetadataManager.updateMetadata(1, Collections.emptyMap());
         MetadataManager.updateMetadata(1, Collections.emptyMap());
         MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
         MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
-
+        MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
+        MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
+        MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
+        MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
+        MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
+        MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
+        MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
+        MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
+        MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
         PowerMock.mockStatic(PropertyManager.class);
         EasyMock.expect(PropertyManager.getProcessPropertiesForProcess(EasyMock.anyInt())).andReturn(Collections.emptyList()).anyTimes();
+        PropertyManager.saveProcessProperty(EasyMock.anyObject());
+        PropertyManager.saveProcessProperty(EasyMock.anyObject());
+        PropertyManager.saveProcessProperty(EasyMock.anyObject());
+        PropertyManager.saveProcessProperty(EasyMock.anyObject());
         PropertyManager.saveProcessProperty(EasyMock.anyObject());
 
         PowerMock.replay(PropertyManager.class);
