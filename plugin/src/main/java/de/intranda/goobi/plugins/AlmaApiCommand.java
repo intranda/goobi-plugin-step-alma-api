@@ -382,7 +382,7 @@ public class AlmaApiCommand {
      * @return request body value with all of its variables being replaced properly
      */
     public String getBodyValue() {
-        return getMaybeVariableValue(bodyValue);
+        return bodyValue;
     }
 
     /**
