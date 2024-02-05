@@ -113,22 +113,26 @@ public class AlmaApiPluginTest {
                 .getChild("extension", mods)
                 .getChild("goobi", goobi);
         List<Element> children = goobiElement.getChildren();
-        assertEquals(17, children.size());
+        assertEquals(18, children.size());
 
-        //        for (int i = 0; i < 17; i++) {
+        //        for (int i = 0; i < 18; i++) {
         //            Element element = children.get(i);
         //            System.out.println(i + " : " + element.getAttributeValue("name") + " - " + element.getValue());
         //        }
 
-        Element thesisID = children.get(14);
-        assertEquals("ThesisId", thesisID.getAttributeValue("name"));
-        assertEquals("106", thesisID.getValue());
+        Element thesisType = children.get(5);
+        assertEquals("ThesisType", thesisType.getAttributeValue("name"));
+        assertEquals("Bachelorarbeit", thesisType.getValue());
 
-        Element student = children.get(15);
-        assertEquals("Name", student.getChildren().get(0).getAttributeValue("name"));
-        assertEquals("NACHNAME Vorname", student.getChildren().get(0).getValue());
-        assertEquals("StudentId", student.getChildren().get(1).getAttributeValue("name"));
-        assertEquals("1234567890", student.getChildren().get(1).getValue());
+        Element student = children.get(14);
+        assertEquals("last", student.getChildren().get(0).getAttributeValue("name"));
+        assertEquals("NACHNAME", student.getChildren().get(0).getValue());
+        assertEquals("first", student.getChildren().get(1).getAttributeValue("name"));
+        assertEquals("Vorname", student.getChildren().get(1).getValue());
+        assertEquals("Name", student.getChildren().get(2).getAttributeValue("name"));
+        assertEquals("NACHNAME Vorname", student.getChildren().get(2).getValue());
+        assertEquals("StudentId", student.getChildren().get(3).getAttributeValue("name"));
+        assertEquals("1234567890", student.getChildren().get(3).getValue());
     }
 
     @Before
@@ -197,27 +201,12 @@ public class AlmaApiPluginTest {
         PowerMock.mockStatic(MetadataManager.class);
         MetadataManager.updateMetadata(1, Collections.emptyMap());
 
-        MetadataManager.updateMetadata(1, Collections.emptyMap());
-        MetadataManager.updateMetadata(1, Collections.emptyMap());
-        MetadataManager.updateMetadata(1, Collections.emptyMap());
-        MetadataManager.updateMetadata(1, Collections.emptyMap());
-        MetadataManager.updateMetadata(1, Collections.emptyMap());
-        MetadataManager.updateMetadata(1, Collections.emptyMap());
-        MetadataManager.updateMetadata(1, Collections.emptyMap());
-        MetadataManager.updateMetadata(1, Collections.emptyMap());
-        MetadataManager.updateMetadata(1, Collections.emptyMap());
-        MetadataManager.updateMetadata(1, Collections.emptyMap());
-        MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
-        MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
-        MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
-        MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
-        MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
-        MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
-        MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
-        MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
-        MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
-        MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
-        MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
+        for (int i = 0; i < 12; i++) {
+            MetadataManager.updateMetadata(1, Collections.emptyMap());
+            MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
+
+        }
+
         PowerMock.mockStatic(PropertyManager.class);
         EasyMock.expect(PropertyManager.getProcessPropertiesForProcess(EasyMock.anyInt())).andReturn(Collections.emptyList()).anyTimes();
         PropertyManager.saveProcessProperty(EasyMock.anyObject());

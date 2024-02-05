@@ -31,6 +31,7 @@ import org.json.JSONArray;
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.InvalidJsonException;
 import com.jayway.jsonpath.JsonPath;
+import com.jayway.jsonpath.PathNotFoundException;
 
 import lombok.extern.log4j.Log4j2;
 
@@ -105,19 +106,23 @@ public class JSONUtils {
             results.add(document);
             return results;
         }
+        try {
+            Object object = JsonPath.read(document, source);
+            if (object != null) {
+                if (object instanceof List) {
+                    List<?> valueList = (List<?>) object;
+                    for (Object element : valueList) {
+                        results.add(element);
 
-        Object object = JsonPath.read(document, source);
-        if (object != null) {
-            if (object instanceof List) {
-                List<?> valueList = (List<?>) object;
-                for (Object element : valueList) {
-                    results.add(element);
-
+                    }
+                } else {
+                    results.add(object);
                 }
-            } else {
-                results.add(object);
             }
+        } catch (PathNotFoundException e) {
+            // metadata not found, ignore this error
         }
+
         return results;
     }
 

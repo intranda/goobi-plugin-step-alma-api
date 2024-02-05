@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Preferences>
   <MetadataType>
+    <Name>TmpLanguage</Name>
+    <language name="de">Sprache (temporäres Feld)</language>
+    <language name="en">Language (temporary field)</language>
+  </MetadataType>
+  <MetadataType>
     <Name>_PROCESSID</Name>
     <language name="de">Vorgangsid</language>
     <language name="en">Process id</language>
@@ -12,8 +17,8 @@
   </MetadataType>
   <MetadataType>
     <Name>PortfolioID</Name>
-    <language name="de">Alma MMS-ID</language>
-    <language name="en">Alma MMS-ID</language>
+    <language name="de">Alma Portfolio-ID</language>
+    <language name="en">Alma Portfolio-ID</language>
   </MetadataType>
   <MetadataType>
     <Name>MMS_ID</Name>
@@ -1423,10 +1428,10 @@
     <language name="es">Final draft ID zzz</language>
   </MetadataType>
   <MetadataType>
-    <Name>SimilaritySubmissionId</Name>
-    <language name="de">Similarity submission ID</language>
-    <language name="en">Similarity submission ID</language>
-    <language name="es">Similarity submission ID zzz</language>
+    <Name>SharedThesisId</Name>
+    <language name="de">Shared Thesis Identifier</language>
+    <language name="en">Shared Thesis Identifier</language>
+    <language name="es">Shared Thesis Identifier zzz</language>
   </MetadataType>
   <MetadataType>
     <Name>StudentId</Name>
@@ -1482,12 +1487,37 @@
     <language name="en">Name</language>
     <language name="es">Nombre</language>
   </MetadataType>
+  <MetadataType>
+    <Name>last</Name>
+    <language name="de">Nachname</language>
+    <language name="en">Last Name</language>
+    <language name="es">Nombre</language>
+  </MetadataType>
+  <MetadataType>
+    <Name>first</Name>
+    <language name="de">Vorname</language>
+    <language name="en">First Name</language>
+    <language name="es">Nombre</language>
+  </MetadataType>
+  <Group>
+    <Name>CoAuthor</Name>
+    <language name="de">KoautorIn</language>
+    <language name="en">Co-author</language>
+    <language name="es">Estudiante</language>
+    <metadata num="1m">Name</metadata>
+    <metadata num="1m">last</metadata>
+    <metadata num="1m">first</metadata>
+    <metadata num="1m">StudentId</metadata>
+    <metadata num="1o">_DateOfBirth</metadata>
+  </Group>
   <Group>
     <Name>Student</Name>
     <language name="de">StudentIn</language>
     <language name="en">Student</language>
     <language name="es">Estudiante</language>
     <metadata num="1m">Name</metadata>
+    <metadata num="1m">last</metadata>
+    <metadata num="1m">first</metadata>
     <metadata num="1m">StudentId</metadata>
     <metadata num="1o">_DateOfBirth</metadata>
   </Group>
@@ -2875,7 +2905,7 @@
       <!-- IDs  -->
     <metadata num="1m" DefaultDisplay="true">ThesisId</metadata>
     <metadata num="1m" DefaultDisplay="true">FinalDraftId</metadata>
-    <metadata num="1m" DefaultDisplay="true">SimilaritySubmissionId</metadata>
+    <metadata num="1m" DefaultDisplay="true">SharedThesisId</metadata>
     <metadata num="1m" DefaultDisplay="true">StudentId</metadata>
     <metadata num="1o">URN</metadata>
     <metadata num="*">ISBN</metadata>
@@ -2890,11 +2920,15 @@
     <metadata num="1o">_electronicEdition</metadata>
     <metadata num="1o">_placeOfElectronicOrigin</metadata>
     <metadata num="*">_ucc_id</metadata>
+    <!-- temporäre Felder -->
+    <metadata num="1o">TmpLanguage</metadata>
+    <!-- Gruppen -->
     <group num="*">ContainedTitle</group>
     <group num="+">Student</group>
-    <group num="1m">Supervisor</group>
-    <group num="1o">CoSupervisor</group>
-    <group num="*">Reviewer</group>
+    <group num="+">CoAuthor</group>
+    <group num="*">Supervisor</group>
+    <group num="*">CoSupervisor</group>
+    <group num="+">Reviewer</group>
   </DocStrctType>
   <DocStrctType topStruct="true">
     <Name>Manuscript</Name>
@@ -8547,8 +8581,8 @@
         <MetsType>periodical</MetsType>
       </DocStruct>
       <!--DocStruct> <InternalName>Series</InternalName> <MetsType>Series</MetsType> 
-				</DocStruct> <DocStruct> <InternalName>SerialVolume</InternalName> <MetsType>SerialVolume</MetsType> 
-				</DocStruct -->
+                </DocStruct> <DocStruct> <InternalName>SerialVolume</InternalName> <MetsType>SerialVolume</MetsType> 
+                </DocStruct -->
       <DocStruct>
         <InternalName>Prepage</InternalName>
         <MetsType>prepage</MetsType>

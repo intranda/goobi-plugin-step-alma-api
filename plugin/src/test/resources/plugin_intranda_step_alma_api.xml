@@ -1,6 +1,7 @@
 <config_plugin>
    
-    <config>
+   
+       <config>
         <!-- which projects to use for (can be more then one, otherwise use *) -->
         <project>*</project>
         <step>*</step>
@@ -10,77 +11,120 @@
         
         <!-- API key -->
         <api-key>CHANGE_ME</api-key>
-        
-  
-        <variable name="MMS_ID" value="{meta.CatalogIDDigital}" />
-        <variable name="SIGNATURE" value="{meta.shelfmarksource}" />
-        
-     
-        <command method="get" accept="json" content-type="json" endpoint="/almaws/v1/bibs/{mms_id}/holdings/ALL/items">
-        	<mms_id>{$MMS_ID}</mms_id>
-        	<parameter name="normalization" value="43588" />
-        	
-        	<target var="ITEM_PID" path="thesis.tid" />          
+
+        <!-- A command is a step to perform. There can be several commands configured, and if so, they will be run one by one in the same order as they are defined. 
+              @method: get | put | post | patch
+              @accept: json | xml. Used to set up the header parameter 'Accept'. OPTIONAL. DEFAULT json.
+              @content-type: json | xml. Used to set up the header parameter 'Content-type'. OPTIONAL. DEFAULT json.
+              @endpoint: raw endpoint string without replacing the placeholders enclosed by {}. For every placeholder say {PLACEHOLDER}, one has to configure it in a 
+                                sub-tag, and in our example it would be <PLACEHOLDER>. Options for values of these sub-tags are:
+                                - plain text value 
+                                - any variable defined by a <variable> tag before all <command> blocks
+                                - any variable defined by a <target> sub-tag of any previous <command> block
+        -->    
+
+        <!-- get thesis_id -->
+        <variable name="THESIS_ID" value="{meta.ThesisId}" />
+        <command method="get" accept="json" endpoint="/thesis/{thesis_id}">
+        <header name="Authorization" value="Bearer library_api_testkey_123" />
+            <thesis_id>{$THESIS_ID}</thesis_id>
             
+            <!-- Target values that is to be retrieved from the REST call response and saved as a variable. OPTIONAL.
+                  @var: name of the variable that is to be used to save the target values retrieved. 
+                            If the variable was already defined before, then its value will be updated. Otherwise a new variable under this name will be created. 
+                  @path: JSON path from where values are to be retrieved.
+             -->
             <target var="TITLE" path="thesis.final_draft.title_original" />
             <target var="TITLE_ENGLISH" path="thesis.final_draft.title_english" />
             <target var="EXAM_DATE" path="thesis.grade_protocol_at" />
             <target var="DEGREE_PROGRAM" path="thesis.degree_program" />
             <target var="ABSTRACT_ENGLISH" path="thesis.abstract_english" />
             <target var="ABSTRACT_ORIGINAL" path="thesis.abstract_original" />
+<target var="ABSTRACT_DEU" path="thesis[?(@.language=='German')].abstract_original" />
             <target var="LANGUAGE" path="thesis.language" />
+            <target var="PAGE_COUNT" path="thesis.final_draft.page_count" />
             <target var="TYPE" path="thesis.type" />
             <target var="KEYWORDS" path="thesis.keywords" />
             <target var="BLOCKING_MONTHS" path="thesis.blocking_months" />
             <target var="BLOCKING_DESCRIPTION" path="thesis.blocking_description" />
             <target var="SUBMITTED_AT" path="thesis.final_draft.submitted_at" />
             <target var="STUDENT" path="thesis.student" type="object" />
-            <target var="REVIEWER_FIRST_NAME" path="thesis.reviewers[*].firstname" />
-            <target var="REVIEWER_LAST_NAME" path="thesis.reviewers[*].surname" />
+            <target var="SUPERVISOR" path="thesis.reviewers[?(@.role=='BeurteilerIn' &amp;&amp; @.reviewer_role.order==1)]" type="object" />
             
             <target var="DRAFT_ID" path="thesis.final_draft.draft_pdf.tid" />
             <target var="DRAFT_HASH" path="thesis.final_draft.draft_pdf.filehash" />
-
+            <!--
+            <target var="SIMILARITYREPORT_ID" path="thesis.final_draft.similarity_report_pdf_file.tid" />
+            <target var="SIMILARITYREPORT_HASH" path="thesis.final_draft.similarity_report_pdf_file.filehash" />
+            -->
             <target var="ATTACHMENT_ID" path="thesis.attachments[*].tid" />
             <target var="ATTACHMENT_HASH" path="thesis.attachments[*].filehash" />
-            
-            
+            <!-- There can be multiple targets configured. -->
+            <!-- In this example, the new variable will be named MATRICLE_NO and it can be reused in the following steps using {$MATRICLE_NO}. -->
         </command>
-        
-      
-        
-        <save type="property" name="item_pid" value="{$ITEM_PID}" choice="first" overwrite="true" />
 
-
-        <save type="metadata" name="ThesisId" value="{$ITEM_PID}" choice="first" overwrite="true" />
-        
-        
-        
-        
+        <!-- A save tag is used to define an entry that is to be saved after running all previous commands. OPTIONAL.
+              @type: type of the entry, OPTIONS are property | metadata
+                  - property: save the entry as a process property
+                  - metadata: save the entry as a metadata
+              @name: name of the entry, which means
+                  - property name if @type is "property"
+                  - metadata type name if @type is "metadata"
+              @value: value of the new process property, possible values are
+                   - a plain text value
+                   - a variable defined before all <command> blocks via a <variable> tag
+                   - a variable defined within some <command> block via a <target> tag
+              @choice: indicates how many items should be saved into this new property, OPTIONS are first | last | random, or any non-blank strings following a colon.
+                    - first: save only the first one among all retrieved values
+                    - last: save only the last one among all retrieved values
+                    - random: save a random one from all retrieved values
+                    - For any non-blank strings following a colon: the substring following this colon will be used as a whole delimiter to combine all results.
+                    - For all other cases, including the case where there is only one single colon configured: all results will be combined using commas.
+              @overwrite: true if the old property named so should be reused, false if a new property should be created, DEFAULT false.
+        -->
+        <!-- save thesis_id as metadata  -->
         <save type="metadata" name="TitleDocMain" value="{$TITLE}" choice="first" overwrite="true" />
         <save type="metadata" name="TitleDocParallel" value="{$TITLE_ENGLISH}" choice="first" overwrite="true" />
         <save type="metadata" name="ExamDate" value="{$EXAM_DATE}" choice="first" overwrite="true" />
         <save type="metadata" name="ThesisType" value="{$TYPE}" choice="first" overwrite="true" />
         <save type="metadata" name="CourseOfStudy" value="{$DEGREE_PROGRAM}" choice="first" overwrite="true" />
         <save type="metadata" name="AbstractEng" value="{$ABSTRACT_ENGLISH}" choice="first" overwrite="true" />
-        <save type="metadata" name="DocLanguage" value="{$LANGUAGE}" choice="first" overwrite="true" />
+        <save type="metadata" name="TmpLanguage" value="{$LANGUAGE}" choice="first" overwrite="true" />
+        <save type="metadata" name="physicalDescriptionExtent" value="{$PAGE_COUNT}" choice="first" overwrite="true" />
         <save type="metadata" name="SubmissionDate" value="{$SUBMITTED_AT}" choice="first" overwrite="true" />
         <save type="metadata" name="AuthorSubjectTopicEng" value="{$KEYWORDS}" choice="each" overwrite="false" />
-        
-        
+
+<!--
+             <target var="ABSTRACT_ORIGINAL" path="thesis.abstract_original" />
+             <target var="KEYWORDS" path="thesis.keywords" />
+             <target var="BLOCKING_MONTHS" path="thesis.blocking_months" />
+             <target var="BLOCKING_DESCRIPTION" path="thesis.blocking_description" />
+                     -->
+
+                <!-- save metadata group -->
         <save type="group" name="Student" value="{$STUDENT}" choice="each" overwrite="true" format="">
             <entry name="Name" path="fullname" />
+            <entry name="last" path="surname" />
+            <entry name="first" path="firstname" />
             <entry name="StudentId" path="matricle" />
         </save>
-
+<save type="group" name="Supervisor" value="{$SUPERVISOR}" choice="first" overwrite="true" format="">
+            <entry name="Name" path="concat(surname,', ',firstname)" />
+            <entry name="_EmployeeID" path="employee_fk" />
+        </save>
         
         <save type="property" name="DraftID" value="{$DRAFT_ID}" overwrite="true" />
         <save type="property" name="DraftHash" value="{$DRAFT_HASH}" overwrite="true" />
-
+        <!--
+        <save type="property" name="SimilarityReportID" value="{$SIMILARITYREPORT_ID}" overwrite="true" />
+        <save type="property" name="SimilarityReportHash" value="{$SIMILARYTIREPORT_HASH}" overwrite="true" />
+        -->
         <save type="property" name="AttachmentID" value="{$ATTACHMENT_ID}" choice=":," overwrite="true" />
         <save type="property" name="AttachmentHash" value="{$ATTACHMENT_HASH}" choice=":," overwrite="true" />
+    </config>   
+
         
-    </config>
+
     
     
 

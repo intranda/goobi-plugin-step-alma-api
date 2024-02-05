@@ -454,22 +454,24 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             DocStruct logical = digital.getLogicalDocStruct();
             if ("group".equals(metadataTemplate.getType())) {
                 List<Object> records = AlmaApiCommand.getSTATIC_VARIABLES_MAP().get(metadataTemplate.getValue());
-                for (Object rec : records) {
-                    MetadataGroupType mgt = prefs.getMetadataGroupTypeByName(metadataTemplate.getName());
-                    MetadataGroup grp = new MetadataGroup(mgt);
+                if (records != null) {
+                    for (Object rec : records) {
+                        MetadataGroupType mgt = prefs.getMetadataGroupTypeByName(metadataTemplate.getName());
+                        MetadataGroup grp = new MetadataGroup(mgt);
 
-                    for (Entry<String, String> entry : metadataTemplate.getGroupMetadataMap().entrySet()) {
-                        String path = entry.getValue();
-                        List<Object> values = JSONUtils.getValuesFromSourceGeneral(path, rec);
-                        for (Object val : values) {
-                            Metadata md = new Metadata(prefs.getMetadataTypeByName(entry.getKey()));
+                        for (Entry<String, String> entry : metadataTemplate.getGroupMetadataMap().entrySet()) {
+                            String path = entry.getValue();
+                            List<Object> values = JSONUtils.getValuesFromSourceGeneral(path, rec);
+                            for (Object val : values) {
+                                Metadata md = new Metadata(prefs.getMetadataTypeByName(entry.getKey()));
 
-                            md.setValue(JSONUtils.getValueAsString(val));
-                            grp.addMetadata(md);
+                                md.setValue(JSONUtils.getValueAsString(val));
+                                grp.addMetadata(md);
+                            }
                         }
-                    }
 
-                    logical.addMetadataGroup(grp);
+                        logical.addMetadataGroup(grp);
+                    }
                 }
             } else {
                 List<String> metadataValues = AlmaApiCommand.getVariableValues(metadataTemplate.getValue());
@@ -484,10 +486,8 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                 }
             }
             process.writeMetadataFile(fileformat);
-        } catch (UGHException | IOException |
-
-                SwapException e) {
-            String message = "Failed to update the metadata file.";
+        } catch (UGHException | IOException | SwapException e) {
+            String message = "Failed to save " + mdTypeName;
             logBoth(processId, LogType.ERROR, message);
             return false;
 
