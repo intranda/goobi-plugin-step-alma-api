@@ -59,6 +59,8 @@
             -->
             <target var="ATTACHMENT_ID" path="thesis.attachments[*].tid" />
             <target var="ATTACHMENT_HASH" path="thesis.attachments[*].filehash" />
+            
+            <target var="ContainedTitle" path="thesis.cumulative_titles[*]" />
             <!-- There can be multiple targets configured. -->
             <!-- In this example, the new variable will be named MATRICLE_NO and it can be reused in the following steps using {$MATRICLE_NO}. -->
         </command>
@@ -121,6 +123,12 @@
         -->
         <save type="property" name="AttachmentID" value="{$ATTACHMENT_ID}" choice=":," overwrite="true" />
         <save type="property" name="AttachmentHash" value="{$ATTACHMENT_HASH}" choice=":," overwrite="true" />
+        
+              <save type="group" name="ContainedTitle" value="{$ContainedTitle}" choice="each" overwrite="true" format="">
+            <entry name="Name" path="@..student.fullname" />
+            <entry name="ConstituentTitle" path="." />
+         
+        </save>
     </config>   
 
         

@@ -244,7 +244,7 @@ public class AlmaApiPluginTest {
                 + "         \"test keyword 3\"" + "      ]," + "      \"blocking_months\":null," + "      \"blocking_description\":null,"
                 + "      \"language\":\"German\"," + "      \"type\":\"Bachelorarbeit\"," + "      \"blocking_state\":{" + "         \"tid\":1,"
                 + "         \"description\":\"no block is requested\"," + "         \"key\":\"NOT_REQUESTED\"," + "         \"state_order\":1"
-                + "      }," + "      \"is_blocking\":false," + "      \"is_cumulative\":false," + "      \"cumulative_titles\":null,"
+                + "      }," + "\"is_blocking\":false," + "\"is_cumulative\":false, \"cumulative_titles\":[\"Titel 1\",\"Titel 2\",\"Titel 3\"],"
                 + "      \"state\":{" + "         \"tid\":7," + "         \"description\":\"grade has been published, attendee certificate\","
                 + "         \"key\":\"GRADE_PUBLISHED\"," + "         \"state_order\":7" + "      }," + "      \"final_draft\":{"
                 + "         \"tid\":106," + "         \"thesis_tid\":106," + "         \"version\":1," + "         \"title_original\":\"Haupttitel\","
