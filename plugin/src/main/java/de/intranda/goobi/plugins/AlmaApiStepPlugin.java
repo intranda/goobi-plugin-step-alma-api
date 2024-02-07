@@ -111,6 +111,8 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
     private transient VariableReplacer replacer;
 
+    private transient Fileformat fileformat;
+
     // create a custom response handler
     private static final ResponseHandler<String> RESPONSE_HANDLER = response -> {
         log.debug("------- STATUS --- LINE -------");
@@ -129,7 +131,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         prefs = process.getRegelsatz().getPreferences();
 
         try {
-            Fileformat fileformat = process.readMetadataFile();
+            fileformat = process.readMetadataFile();
             DigitalDocument dd = fileformat.getDigitalDocument();
             replacer = new VariableReplacer(dd, prefs, process, step);
         } catch (UGHException | IOException | SwapException e) {
@@ -269,6 +271,14 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
         String message = "AlmaApi step plugin executed.";
         logBoth(processId, LogType.INFO, message);
+
+        // write
+        try {
+            process.writeMetadataFile(fileformat);
+        } catch (UGHException | IOException | SwapException e) {
+            log.error(e);
+        }
+
         return successful ? PluginReturnValue.FINISH : PluginReturnValue.ERROR;
     }
 
@@ -449,7 +459,6 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
     private boolean saveMetadata(EntryToSaveTemplate metadataTemplate) {
         String mdTypeName = metadataTemplate.getName();
         try {
-            Fileformat fileformat = process.readMetadataFile();
             DigitalDocument digital = fileformat.getDigitalDocument();
             DocStruct logical = digital.getLogicalDocStruct();
             if ("group".equals(metadataTemplate.getType())) {
@@ -485,8 +494,8 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                     updateMetadata(metadataTemplate, mdTypeName, logical, mdValue);
                 }
             }
-            process.writeMetadataFile(fileformat);
-        } catch (UGHException | IOException | SwapException e) {
+
+        } catch (UGHException e) {
             String message = "Failed to save " + mdTypeName;
             logBoth(processId, LogType.ERROR, message);
             return false;

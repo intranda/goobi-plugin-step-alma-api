@@ -120,7 +120,7 @@ public class AlmaApiPluginTest {
         //            System.out.println(i + " : " + element.getAttributeValue("name") + " - " + element.getValue());
         //        }
 
-        Element thesisType = children.get(5);
+        Element thesisType = children.get(4);
         assertEquals("ThesisType", thesisType.getAttributeValue("name"));
         assertEquals("Bachelorarbeit", thesisType.getValue());
 
@@ -201,11 +201,11 @@ public class AlmaApiPluginTest {
         PowerMock.mockStatic(MetadataManager.class);
         MetadataManager.updateMetadata(1, Collections.emptyMap());
 
-        for (int i = 0; i < 12; i++) {
-            MetadataManager.updateMetadata(1, Collections.emptyMap());
-            MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
+        //        for (int i = 0; i < 12; i++) {
+        MetadataManager.updateMetadata(1, Collections.emptyMap());
+        MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
 
-        }
+        //        }
 
         PowerMock.mockStatic(PropertyManager.class);
         EasyMock.expect(PropertyManager.getProcessPropertiesForProcess(EasyMock.anyInt())).andReturn(Collections.emptyList()).anyTimes();
