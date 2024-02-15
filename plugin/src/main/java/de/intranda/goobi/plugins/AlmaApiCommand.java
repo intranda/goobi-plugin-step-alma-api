@@ -85,7 +85,18 @@ public class AlmaApiCommand {
     private String headerContentType;
     private String bodyValue;
 
+    @Getter
+    private boolean saveResponse;
+    @Getter
+    private String responseFileName;
+
     public AlmaApiCommand(HierarchicalConfiguration config) {
+
+        responseFileName = config.getString("@filename");
+        if (StringUtils.isNotBlank(responseFileName)) {
+            saveResponse = true;
+        }
+
         String rawEndpoint = config.getString("@endpoint");
         initializeEndpoints(rawEndpoint, config);
         method = config.getString("@method");

@@ -20,6 +20,9 @@
 package de.intranda.goobi.plugins;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -293,9 +296,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             // update endpoints
             command.updateAllEndpoints();
             // prepare the command
-            String method = command.getMethod();
-            String headerAccept = command.getHeaderAccept(); // default application/json, unless configured
-            String headerContentType = command.getHeaderContentType(); // default application/json, unless in <body> configured
+
             String bodyValue = command.getBodyValue();
             log.debug("bodyValue = \n" + bodyValue);
 
@@ -309,7 +310,6 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             }
 
             Map<String, String> parameters = command.getParametersMap();
-            Map<String, String> headerParameters = command.getHeaderParameters();
             List<String> endpoints = command.getEndpoints();
             List<Target> targetVariablePathList = command.getTargets();
 
@@ -317,7 +317,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             for (String endpoint : endpoints) {
                 // run the command to get the JSONObject
                 String requestUrl = createRequestUrl(endpoint, parameters);
-                Object jsonObject = runCommand(method, headerAccept, headerContentType, requestUrl, bodyValue, headerParameters);
+                Object jsonObject = runCommand(command, requestUrl, bodyValue);
                 if (jsonObject == null) {
                     continue;
                 }
@@ -658,10 +658,11 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * @param body JSON or XML body that is to be sent by request,
      * @return response as JSONObject, or null if any error occurred
      */
-    private Object runCommand(String method, String headerAccept, String headerContentType, String url, String body,
-            Map<String, String> headerParameters) {
-        return "get".equalsIgnoreCase(method) ? runCommandGet(headerAccept, headerContentType, url, headerParameters)
-                : runCommandNonGet(method, headerAccept, headerContentType, url, body, headerParameters);
+    private Object runCommand(AlmaApiCommand command, String url, String body) {
+        String method = command.getMethod();
+
+        return "get".equalsIgnoreCase(method) ? runCommandGet(command, url)
+                : runCommandNonGet(method, command, url, body);
     }
 
     /**
@@ -672,7 +673,12 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * @param url request url
      * @return response as JSONObject, or null if any error occurred
      */
-    private Object runCommandGet(String headerAccept, String headerContentType, String url, Map<String, String> headerParameters) {
+    private Object runCommandGet(AlmaApiCommand command, String url) {
+        String headerAccept = command.getHeaderAccept(); // default application/json, unless configured
+        String headerContentType = command.getHeaderContentType(); // default application/json, unless in <body> configured
+
+        Map<String, String> headerParameters = command.getHeaderParameters();
+
         if (testmode) {
             String response = HttpUtils.getStringFromUrl(url);
             try {
@@ -694,9 +700,9 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                 log.debug(message);
 
                 String responseBody = client.execute(httpGet, RESPONSE_HANDLER);
-                log.debug("------- response body -------");
-                log.debug(responseBody);
-                log.debug("------- response body -------");
+                if (command.isSaveResponse()) {
+                    storeResponse(command, responseBody);
+                }
 
                 return headerAccept.endsWith("json") ? JSONUtils.getJSONObjectFromString(responseBody) : null;
 
@@ -722,8 +728,13 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * @param body JSON or XML body that is to be sent by request
      * @return response as JSONObject, or null if any error occurred
      */
-    private Object runCommandNonGet(String method, String headerAccept, String headerContentType, String url, String body,
-            Map<String, String> headerParameters) {
+    private Object runCommandNonGet(String method, AlmaApiCommand command, String url, String body) {
+
+        String headerAccept = command.getHeaderAccept(); // default application/json, unless configured
+        String headerContentType = command.getHeaderContentType(); // default application/json, unless in <body> configured
+
+        Map<String, String> headerParameters = command.getHeaderParameters();
+
         HttpEntityEnclosingRequestBase httpBase;
         switch (method.toLowerCase()) {
             case "put":
@@ -755,9 +766,9 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             log.debug(message);
 
             String responseBody = client.execute(httpBase, RESPONSE_HANDLER);
-            log.debug("------- response body -------");
-            log.debug(responseBody);
-            log.debug("------- response body -------");
+            if (command.isSaveResponse()) {
+                storeResponse(command, responseBody);
+            }
             return headerAccept.endsWith("json") ? JSONUtils.getJSONObjectFromString(responseBody) : null;
         } catch (IOException e) {
             String message = "IOException caught while executing request: " + httpBase.getRequestLine();
@@ -768,6 +779,12 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             log.error(message);
         }
         return null; //NOSONAR
+    }
+
+    private void storeResponse(AlmaApiCommand command, String responseBody) throws IOException {
+        Path path = Paths.get(replacer.replace(command.getResponseFileName()));
+        byte[] strToBytes = responseBody.getBytes();
+        Files.write(path, strToBytes);
     }
 
     /**
