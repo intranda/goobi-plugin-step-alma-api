@@ -255,7 +255,7 @@ public class AlmaApiCommand {
      */
     private List<String> replaceStaticVariableInEndpoint(String rawEndpoint, String staticVariable) {
         List<String> results = new ArrayList<>();
-        List<String> possibleValues = getVariableValues(staticVariable);
+        List<String> possibleValues = getVariableValues(staticVariable, false);
 
         for (String value : possibleValues) {
             String endpoint = rawEndpoint.replace(staticVariable, value);
@@ -303,7 +303,7 @@ public class AlmaApiCommand {
             }
 
             // retrieve value from the variables map
-            filterValue = getVariableValues(wrappedKey).get(0);
+            filterValue = getVariableValues(wrappedKey, false).get(0);
             log.debug("filterValue after replacing static variable = " + filterValue);
         }
 
@@ -404,7 +404,7 @@ public class AlmaApiCommand {
      */
     private String getMaybeVariableValue(String s) {
         String key = s.startsWith("{$") || s.startsWith("$") ? wrapKey(s) : s;
-        return getVariableValues(key).get(0);
+        return getVariableValues(key, false).get(0);
     }
 
     /**
@@ -666,7 +666,7 @@ public class AlmaApiCommand {
      * @param key name of the static variable whose value is to be retrieved
      * @return all possible values of this static variable
      */
-    public static List<String> getVariableValues(String key) {
+    public static List<String> getVariableValues(String key, boolean convertJson) {
         if (!STATIC_VARIABLES_MAP.containsKey(key)) {
             return Arrays.asList("");
         }
@@ -682,6 +682,8 @@ public class AlmaApiCommand {
             } else if (obj instanceof JSONObject) {
                 JSONObject json = (JSONObject) obj;
                 results.add(json.toString());
+            } else if (convertJson) {
+                results.add(JSONUtils.convertJsonToString(obj));
             } else {
                 results.add(String.valueOf(obj));
             }

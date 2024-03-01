@@ -36,5 +36,17 @@
 			<attribute name="maven.pomderived" value="true"/>
 		</attributes>
 	</classpathentry>
+	<classpathentry kind="lib" path="/home/robert/.m2/repository/net/minidev/json-smart/2.4.10/json-smart-2.4.10.jar" sourcepath="/home/robert/.m2/repository/net/minidev/json-smart/2.4.10/json-smart-2.4.10-sources.jar">
+		<attributes>
+			<attribute name="maven.pomderived" value="true"/>
+			<attribute name="test" value="true"/>
+			<attribute name="org.eclipse.jst.component.archivename" value="json-smart-2.4.10.jar"/>
+			<attribute name="javadoc_location" value="jar:file:/home/robert/.m2/repository/net/minidev/json-smart/2.4.10/json-smart-2.4.10-javadoc.jar!/"/>
+			<attribute name="maven.groupId" value="net.minidev"/>
+			<attribute name="maven.artifactId" value="json-smart"/>
+			<attribute name="maven.version" value="2.4.10"/>
+			<attribute name="maven.scope" value="runtime"/>
+		</attributes>
+	</classpathentry>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>

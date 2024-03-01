@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.apache.commons.lang3.StringUtils;
 import org.json.JSONArray;
@@ -181,4 +182,89 @@ public class JSONUtils {
 
         return anwer;
     }
+
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    public static void updateJsonObject(Map<String, String> pathValueMap, Object jsonObject) {
+        if (pathValueMap == null || pathValueMap.isEmpty()) {
+            // no need to update anything
+            return;
+        }
+        for (Map.Entry<String, String> entry : pathValueMap.entrySet()) {
+            String jsonPath = entry.getKey();
+            String newValue = entry.getValue();
+
+            // split jsonPath on "."
+
+            Map map = (LinkedHashMap) jsonObject;
+
+            while (jsonPath.contains(".")) {
+                String current = jsonPath.substring(0, jsonPath.indexOf("."));
+                jsonPath = jsonPath.substring(jsonPath.indexOf(".") + 1);
+
+                if (map.get(current) == null) {
+                    map.put(current, new LinkedHashMap());
+                }
+                map = (LinkedHashMap) map.get(current);
+
+            }
+
+            // add/overwrite value, if we have the last element
+
+            map.put(jsonPath, newValue);
+        }
+    }
+
+    public static String convertJsonToString(Object jsonObject) {
+        Map<String, Object> map = (Map<String, Object>) jsonObject;
+
+        StringBuilder sb = new StringBuilder();
+        int counter = 0;
+
+        sb.append("{");
+        for (Entry<String, Object> entry : map.entrySet()) {
+            if (counter > 0) {
+                sb.append(",");
+            }
+            counter++;
+            sb.append("\"");
+            sb.append(entry.getKey());
+            sb.append("\":");
+
+            Object val = entry.getValue();
+            if (val == null) {
+                sb.append("null");
+            } else if (val instanceof String) {
+                String stringValue = (String) val;
+                // empty
+                if (StringUtils.isBlank(stringValue)) {
+                    sb.append("\"\"");
+                } else {
+                    sb.append("\"");
+                    sb.append(stringValue);
+                    sb.append("\"");
+
+                }
+
+            } else if (val instanceof Boolean) {
+                sb.append(val);
+            }
+
+            else if (val instanceof net.minidev.json.JSONArray) {
+                net.minidev.json.JSONArray arr = (net.minidev.json.JSONArray) val;
+                sb.append(arr.toJSONString());
+
+            } else if (val instanceof Map) {
+                String sub = convertJsonToString(val);
+                sb.append(sub);
+            } else {
+                log.error("json type is not mapped: " + val.getClass());
+            }
+
+        }
+
+        sb.append("}");
+
+        return sb.toString();
+    }
+
 }

@@ -301,11 +301,11 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             log.debug("bodyValue = \n" + bodyValue);
 
             bodyValue = replacer.replace(bodyValue);
-
+            boolean isJson = command.getHeaderContentType().contains("json");
             // replace variables in file {$MMS_ID} -> 99724 ....
             for (Matcher m = Pattern.compile("(\\{\\$[^\\{\\}]*\\})").matcher(bodyValue); m.find();) {
                 MatchResult r = m.toMatchResult();
-                String value = AlmaApiCommand.getVariableValues(r.group()).get(0);
+                String value = AlmaApiCommand.getVariableValues(r.group(), isJson).get(0);
                 bodyValue = bodyValue.replace(r.group(), value);
             }
 
@@ -349,6 +349,9 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                     }
                 }
 
+                if (StringUtils.isNotBlank(updateVariableName) && !command.getUpdateVariablePathValueMap().isEmpty()) {
+                    JSONUtils.updateJsonObject(command.getUpdateVariablePathValueMap(), jsonObject);
+                }
                 boolean staticVariablesUpdated = AlmaApiCommand.updateStaticVariablesMap(updateVariableName, jsonObject);
                 if (!staticVariablesUpdated) {
                     log.debug("static variables map was not successfully updated");
@@ -397,7 +400,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         try {
             String propertyName = propertyTemplate.getName();
             String wrappedKey = AlmaApiCommand.wrapKey(propertyTemplate.getValue());
-            List<String> propertyValues = AlmaApiCommand.getVariableValues(wrappedKey);
+            List<String> propertyValues = AlmaApiCommand.getVariableValues(wrappedKey, false);
             if ("each".equals(propertyTemplate.getChoice())) {
                 for (String propertyValue : propertyValues) {
                     saveProp(propertyTemplate, propertyName, propertyValue);
@@ -483,7 +486,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                     }
                 }
             } else {
-                List<String> metadataValues = AlmaApiCommand.getVariableValues(metadataTemplate.getValue());
+                List<String> metadataValues = AlmaApiCommand.getVariableValues(metadataTemplate.getValue(), false);
                 if ("each".equals(metadataTemplate.getChoice())) {
                     for (String mdValue : metadataValues) {
                         addMetadata(mdTypeName, logical, mdValue);
@@ -760,7 +763,22 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             StringEntity entity = new StringEntity(body, ContentType.create(headerContentType, Consts.UTF_8));
             httpBase.setEntity(entity);
 
-            httpBase.setHeader("Content-Type", headerContentType);
+            //            String text = new String(entity.getContent().readAllBytes(), StandardCharsets.UTF_8);
+            //            System.out.println(text);
+            //            ObjectMapper objectMapper = new ObjectMapper();
+            //            String jacksonData = objectMapper.writeValueAsString(body);
+            //
+            //            System.out.println(jacksonData);
+            //            httpBase.setHeader("Content-Type", headerContentType);
+
+            //            Gson gson = new Gson();
+            //            String gsonData = gson.toJson(body, new TypeToken<HashMap>() {
+            //            }.getType());
+            //            System.out.println(gsonData);
+
+            //            JSONObject jsonObject = new JSONObject(body);
+            //            String orgJsonData = jsonObject.toString();
+            //            System.out.println(orgJsonData);
 
             String message = "Executing request " + httpBase.getRequestLine();
             log.debug(message);
