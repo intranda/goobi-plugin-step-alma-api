@@ -121,8 +121,16 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         log.debug("------- STATUS --- LINE -------");
         log.debug(response.getStatusLine());
         log.debug("------- STATUS --- LINE -------");
+        String value = null;
         HttpEntity entity = response.getEntity();
-        return entity != null ? EntityUtils.toString(entity) : null;
+        if (entity != null) {
+            value = EntityUtils.toString(entity);
+        }
+        if (response.getStatusLine().getStatusCode() > 399) {
+            // error code
+            throw new IOException("HTTP status code is " + response.getStatusLine().getStatusCode() + ", response is " + value);
+        }
+        return value;
     };
 
     @Override
@@ -660,8 +668,9 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * @param url request url
      * @param body JSON or XML body that is to be sent by request,
      * @return response as JSONObject, or null if any error occurred
+     * @throws IOException
      */
-    private Object runCommand(AlmaApiCommand command, String url, String body) {
+    private Object runCommand(AlmaApiCommand command, String url, String body) throws IOException {
         String method = command.getMethod();
 
         return "get".equalsIgnoreCase(method) ? runCommandGet(command, url)
@@ -675,8 +684,9 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * @param headerContentType value for the header parameter Content-type
      * @param url request url
      * @return response as JSONObject, or null if any error occurred
+     * @throws IOException
      */
-    private Object runCommandGet(AlmaApiCommand command, String url) {
+    private Object runCommandGet(AlmaApiCommand command, String url) throws IOException {
         String headerAccept = command.getHeaderAccept(); // default application/json, unless configured
         String headerContentType = command.getHeaderContentType(); // default application/json, unless in <body> configured
 
@@ -709,13 +719,6 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
                 return headerAccept.endsWith("json") ? JSONUtils.getJSONObjectFromString(responseBody) : null;
 
-            } catch (IOException e) {
-                String message = "IOException caught while executing request: " + httpGet.getRequestLine();
-                log.error(message);
-            } catch (InvalidJsonException e) {
-                String message = "ParseException caught while executing request: " + httpGet.getRequestLine();
-                log.error(message);
-
             }
         }
         return null; //NOSONAR
@@ -730,8 +733,9 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * @param url request url
      * @param body JSON or XML body that is to be sent by request
      * @return response as JSONObject, or null if any error occurred
+     * @throws IOException
      */
-    private Object runCommandNonGet(String method, AlmaApiCommand command, String url, String body) {
+    private Object runCommandNonGet(String method, AlmaApiCommand command, String url, String body) throws IOException {
 
         String headerAccept = command.getHeaderAccept(); // default application/json, unless configured
         String headerContentType = command.getHeaderContentType(); // default application/json, unless in <body> configured
@@ -763,23 +767,6 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             StringEntity entity = new StringEntity(body, ContentType.create(headerContentType, Consts.UTF_8));
             httpBase.setEntity(entity);
 
-            //            String text = new String(entity.getContent().readAllBytes(), StandardCharsets.UTF_8);
-            //            System.out.println(text);
-            //            ObjectMapper objectMapper = new ObjectMapper();
-            //            String jacksonData = objectMapper.writeValueAsString(body);
-            //
-            //            System.out.println(jacksonData);
-            //            httpBase.setHeader("Content-Type", headerContentType);
-
-            //            Gson gson = new Gson();
-            //            String gsonData = gson.toJson(body, new TypeToken<HashMap>() {
-            //            }.getType());
-            //            System.out.println(gsonData);
-
-            //            JSONObject jsonObject = new JSONObject(body);
-            //            String orgJsonData = jsonObject.toString();
-            //            System.out.println(orgJsonData);
-
             String message = "Executing request " + httpBase.getRequestLine();
             log.debug(message);
 
@@ -788,15 +775,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
                 storeResponse(command, responseBody);
             }
             return headerAccept.endsWith("json") ? JSONUtils.getJSONObjectFromString(responseBody) : null;
-        } catch (IOException e) {
-            String message = "IOException caught while executing request: " + httpBase.getRequestLine();
-            log.error(message);
-
-        } catch (InvalidJsonException e) {
-            String message = "ParseException caught while executing request: " + httpBase.getRequestLine();
-            log.error(message);
         }
-        return null; //NOSONAR
     }
 
     private void storeResponse(AlmaApiCommand command, String responseBody) throws IOException {
