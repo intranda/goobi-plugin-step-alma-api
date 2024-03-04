@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import org.json.JSONArray;
 
 import com.jayway.jsonpath.Configuration;
@@ -166,8 +167,8 @@ public class JSONUtils {
         } else if (value instanceof LinkedHashMap) {
             @SuppressWarnings("unchecked")
             Map<String, String> map = (Map<String, String>) value;
-            for (String key : map.keySet()) {
-                log.error("not mapped: " + key + ": " + map.get(key));
+            for (Entry<String, String> entry : map.entrySet()) {
+                log.error("not mapped: " + entry.getKey() + ": " + entry.getValue());
             }
         } else if (value instanceof JSONArray) {
             JSONArray array = (JSONArray) value;
@@ -201,7 +202,7 @@ public class JSONUtils {
                 String current = jsonPath.substring(0, jsonPath.indexOf("."));
                 jsonPath = jsonPath.substring(jsonPath.indexOf(".") + 1);
 
-                if (map.get(current) == null) {
+                if (map.get(current) == null) { //NOSONAR
                     map.put(current, new LinkedHashMap());
                 }
                 map = (LinkedHashMap) map.get(current);
@@ -215,6 +216,7 @@ public class JSONUtils {
     }
 
     public static String convertJsonToString(Object jsonObject) {
+        @SuppressWarnings("unchecked")
         Map<String, Object> map = (Map<String, Object>) jsonObject;
 
         StringBuilder sb = new StringBuilder();
@@ -240,7 +242,7 @@ public class JSONUtils {
                     sb.append("\"\"");
                 } else {
                     sb.append("\"");
-                    sb.append(stringValue);
+                    sb.append(StringEscapeUtils.escapeJson(stringValue));
                     sb.append("\"");
 
                 }
