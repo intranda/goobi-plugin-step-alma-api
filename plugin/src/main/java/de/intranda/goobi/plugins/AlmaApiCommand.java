@@ -688,6 +688,7 @@ public class AlmaApiCommand {
                 results.add(String.valueOf(obj));
             }
         }
+        log.debug(key + ": " + results.get(0));
         return results;
     }
 
