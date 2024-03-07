@@ -2,9 +2,9 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>io.goobi.workflow.plugin</groupId>
-    <artifactId>plugin-step-alma_api</artifactId>
+    <artifactId>plugin-step-alma-api</artifactId>
     <version>24.03-SNAPSHOT</version>
   </parent>
-  <artifactId>plugin-step-alma_api-base</artifactId>
+  <artifactId>plugin-step-alma-api-base</artifactId>
   <packaging>jar</packaging>
 </project>
