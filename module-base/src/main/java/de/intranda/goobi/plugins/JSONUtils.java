@@ -166,8 +166,8 @@ public class JSONUtils {
         } else if (value instanceof LinkedHashMap) {
             @SuppressWarnings("unchecked")
             Map<String, String> map = (Map<String, String>) value;
-            for (String key : map.keySet()) {
-                log.error("not mapped: " + key + ": " + map.get(key));
+            for (Entry<String, String> entry : map.entrySet()) {
+                log.error("not mapped: " + entry.getKey() + ": " + entry.getValue());
             }
         } else if (value instanceof JSONArray) {
             JSONArray array = (JSONArray) value;
@@ -215,6 +215,7 @@ public class JSONUtils {
     }
 
     public static String convertJsonToString(Object jsonObject) {
+        @SuppressWarnings("unchecked")
         Map<String, Object> map = (Map<String, Object>) jsonObject;
 
         StringBuilder sb = new StringBuilder();
