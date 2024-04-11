@@ -821,7 +821,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
     private void storeResponse(AlmaApiCommand command, String responseBody) throws IOException {
         Path path = Paths.get(replacer.replace(command.getResponseFileName()));
         if (!StorageProvider.getInstance().isFileExists(path.getParent())) {
-            StorageProvider.getInstance().createDirectories(path);
+            StorageProvider.getInstance().createDirectories(path.getParent());
         }
 
         byte[] strToBytes = responseBody.getBytes();
