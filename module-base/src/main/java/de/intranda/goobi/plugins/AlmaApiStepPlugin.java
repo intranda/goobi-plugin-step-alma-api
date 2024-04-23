@@ -192,7 +192,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
             String variableValue = getVariableValue(variableConfig);
             String conditionField = variableConfig.getString("@conditionField");
             String conditionValue = variableConfig.getString("@conditionValue");
-            String conditionType = variableConfig.getString("@contitionType", "is");
+            String conditionType = variableConfig.getString("@conditionType", "is");
 
             boolean conditionMatched = false;
 
