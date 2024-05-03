@@ -65,6 +65,7 @@ import com.jayway.jsonpath.InvalidJsonException;
 
 import de.sub.goobi.config.ConfigPlugins;
 import de.sub.goobi.helper.Helper;
+import de.sub.goobi.helper.StorageProvider;
 import de.sub.goobi.helper.VariableReplacer;
 import de.sub.goobi.helper.exceptions.SwapException;
 import de.sub.goobi.persistence.managers.PropertyManager;
@@ -197,14 +198,54 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
         for (HierarchicalConfiguration variableConfig : variableConfigs) {
             String variableName = variableConfig.getString("@name");
             String variableValue = getVariableValue(variableConfig);
+            String conditionField = variableConfig.getString("@conditionField");
+            String conditionValue = variableConfig.getString("@conditionValue");
+            String conditionType = variableConfig.getString("@conditionType", "is");
 
-            boolean staticVariablesUpdated = AlmaApiCommand.updateStaticVariablesMap(variableName, variableValue);
-            if (staticVariablesUpdated) {
-                log.info("Static variable added: " + variableName + " -> " + variableValue);
+            boolean conditionMatched = false;
+
+            if (StringUtils.isNotBlank(conditionField)) {
+                String actualValue = replacer.replace(conditionField);
+
+                switch (conditionType) {
+                    case "is":
+                        if (actualValue.equals(conditionValue)) {
+                            conditionMatched = true;
+                        }
+                        break;
+                    case "not":
+                        if (!actualValue.equals(conditionValue)) {
+                            conditionMatched = true;
+                        }
+                        break;
+                    case "matches":
+                        if (actualValue.matches(conditionValue)) {
+                            conditionMatched = true;
+                        }
+                        break;
+                    case "any":
+                        // actual value is not blank and contains a value different from variable name
+                        if (StringUtils.isNotBlank(actualValue) && !actualValue.equals(conditionField)) {
+                            conditionMatched = true;
+                        }
+                        break;
+                    default:
+                        conditionMatched = false;
+                }
+
             } else {
-                log.error("Failed to add variable: " + variableName);
+                // default: add variable
+                conditionMatched = true;
             }
 
+            if (conditionMatched) {
+                boolean staticVariablesUpdated = AlmaApiCommand.updateStaticVariablesMap(variableName, variableValue);
+                if (staticVariablesUpdated) {
+                    log.info("Static variable added: " + variableName + " -> " + variableValue);
+                } else {
+                    log.error("Failed to add variable: " + variableName);
+                }
+            }
         }
     }
 
@@ -385,17 +426,25 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      */
     private boolean saveEntry(EntryToSaveTemplate entry) {
         String type = entry.getType();
-        switch (type.toLowerCase()) {
-            case "property":
-                return saveProperty(entry);
-            case "metadata":
-            case "group":
-                return saveMetadata(entry);
-            default:
-                String message = "Ignoring unknown entry type: " + type + ".";
-                logBoth(processId, LogType.WARN, message);
-                return false;
+        try {
+            switch (type.toLowerCase()) {
+                case "property":
+                    saveProperty(entry);
+                    break;
+                case "metadata":
+                case "group":
+                    saveMetadata(entry);
+                    break;
+                default:
+                    String message = "Ignoring unknown entry type: " + type + ".";
+                    logBoth(processId, LogType.WARN, message);
+                    return false;
+            }
+        } catch (UGHException e) {
+            log.error(e);
+            return false;
         }
+        return true;
     }
 
     /**
@@ -404,28 +453,21 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * @param propertyTemplate EntryToSaveTemplate of type "property"
      * @return true if successful, false if any exception occurred
      */
-    private boolean saveProperty(EntryToSaveTemplate propertyTemplate) {
-        try {
-            String propertyName = propertyTemplate.getName();
-            String wrappedKey = AlmaApiCommand.wrapKey(propertyTemplate.getValue());
-            List<String> propertyValues = AlmaApiCommand.getVariableValues(wrappedKey, false);
-            if ("each".equals(propertyTemplate.getChoice())) {
-                for (String propertyValue : propertyValues) {
-                    saveProp(propertyTemplate, propertyName, propertyValue);
-                }
-            } else {
-                // determine property value according to the configured choice
-                String propertyValue = getEntryValue(propertyValues, propertyTemplate.getChoice());
+    private void saveProperty(EntryToSaveTemplate propertyTemplate) {
+
+        String propertyName = propertyTemplate.getName();
+        String wrappedKey = AlmaApiCommand.wrapKey(propertyTemplate.getValue());
+        List<String> propertyValues = AlmaApiCommand.getVariableValues(wrappedKey, false);
+        if ("each".equals(propertyTemplate.getChoice())) {
+            for (String propertyValue : propertyValues) {
                 saveProp(propertyTemplate, propertyName, propertyValue);
             }
-            return true;
-
-        } catch (Exception e) {
-            // any kind of exception should stop further steps, e.g. NullPointerException
-            String message = "Exception caught while saving process properties: " + e.toString();
-            logBoth(processId, LogType.ERROR, message);
+        } else {
+            // determine property value according to the configured choice
+            String propertyValue = getEntryValue(propertyValues, propertyTemplate.getChoice());
+            saveProp(propertyTemplate, propertyName, propertyValue);
         }
-        return false;
+
     }
 
     private void saveProp(EntryToSaveTemplate propertyTemplate, String propertyName, String propertyValue) {
@@ -466,53 +508,47 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
      * 
      * @param metadataTemplate EntryToSaveTemplate of type "metadata"
      * @return true if successful, false if any exception occurred
+     * @throws UGHException
      */
-    private boolean saveMetadata(EntryToSaveTemplate metadataTemplate) {
+    private void saveMetadata(EntryToSaveTemplate metadataTemplate) throws UGHException {
         String mdTypeName = metadataTemplate.getName();
-        try {
-            DigitalDocument digital = fileformat.getDigitalDocument();
-            DocStruct logical = digital.getLogicalDocStruct();
-            if ("group".equals(metadataTemplate.getType())) {
-                List<Object> records = AlmaApiCommand.getSTATIC_VARIABLES_MAP().get(metadataTemplate.getValue());
-                if (records != null) {
-                    for (Object rec : records) {
-                        MetadataGroupType mgt = prefs.getMetadataGroupTypeByName(metadataTemplate.getName());
-                        MetadataGroup grp = new MetadataGroup(mgt);
 
-                        for (Entry<String, String> entry : metadataTemplate.getGroupMetadataMap().entrySet()) {
-                            String path = entry.getValue();
-                            List<Object> values = JSONUtils.getValuesFromSourceGeneral(path, rec);
-                            for (Object val : values) {
-                                Metadata md = new Metadata(prefs.getMetadataTypeByName(entry.getKey()));
+        DigitalDocument digital = fileformat.getDigitalDocument();
+        DocStruct logical = digital.getLogicalDocStruct();
+        if ("group".equals(metadataTemplate.getType())) {
+            List<Object> records = AlmaApiCommand.getSTATIC_VARIABLES_MAP().get(metadataTemplate.getValue());
+            if (records != null) {
+                for (Object rec : records) {
+                    MetadataGroupType mgt = prefs.getMetadataGroupTypeByName(metadataTemplate.getName());
+                    MetadataGroup grp = new MetadataGroup(mgt);
 
-                                md.setValue(JSONUtils.getValueAsString(val));
-                                grp.addMetadata(md);
-                            }
+                    for (Entry<String, String> entry : metadataTemplate.getGroupMetadataMap().entrySet()) {
+                        String path = entry.getValue();
+                        List<Object> values = JSONUtils.getValuesFromSourceGeneral(path, rec);
+                        for (Object val : values) {
+                            Metadata md = new Metadata(prefs.getMetadataTypeByName(entry.getKey()));
+
+                            md.setValue(JSONUtils.getValueAsString(val));
+                            grp.addMetadata(md);
                         }
+                    }
 
-                        logical.addMetadataGroup(grp);
-                    }
-                }
-            } else {
-                List<String> metadataValues = AlmaApiCommand.getVariableValues(metadataTemplate.getValue(), false);
-                if ("each".equals(metadataTemplate.getChoice())) {
-                    for (String mdValue : metadataValues) {
-                        addMetadata(mdTypeName, logical, mdValue);
-                    }
-                } else {
-                    // determine metadata value according to the configured choice
-                    String mdValue = getEntryValue(metadataValues, metadataTemplate.getChoice());
-                    updateMetadata(metadataTemplate, mdTypeName, logical, mdValue);
+                    logical.addMetadataGroup(grp);
                 }
             }
-
-        } catch (UGHException e) {
-            String message = "Failed to save " + mdTypeName;
-            logBoth(processId, LogType.ERROR, message);
-            return false;
-
+        } else {
+            List<String> metadataValues = AlmaApiCommand.getVariableValues(metadataTemplate.getValue(), false);
+            if ("each".equals(metadataTemplate.getChoice())) {
+                for (String mdValue : metadataValues) {
+                    addMetadata(mdTypeName, logical, mdValue);
+                }
+            } else {
+                // determine metadata value according to the configured choice
+                String mdValue = getEntryValue(metadataValues, metadataTemplate.getChoice());
+                updateMetadata(metadataTemplate, mdTypeName, logical, mdValue);
+            }
         }
-        return true;
+
     }
 
     private void updateMetadata(EntryToSaveTemplate metadataTemplate, String mdTypeName, DocStruct logical, String mdValue)
@@ -780,6 +816,10 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
     private void storeResponse(AlmaApiCommand command, String responseBody) throws IOException {
         Path path = Paths.get(replacer.replace(command.getResponseFileName()));
+        if (!StorageProvider.getInstance().isFileExists(path.getParent())) {
+            StorageProvider.getInstance().createDirectories(path.getParent());
+        }
+
         byte[] strToBytes = responseBody.getBytes();
         Files.write(path, strToBytes);
     }
