@@ -25,6 +25,10 @@
         <variable name="MMS_ID" value="{meta.RezenssionsZssDBID}" />
         <!-- There can be multiple variables defined before all commands. -->
         <variable name="SIGNATURE" value="{meta.shelfmarksource}" />
+
+        <variable name="THESIS_TYPE" value="MASTERTHESIS" conditionField="{meta.ThesisType}" conditionValue="Masterarbeit" />
+        <variable name="THESIS_TYPE" value="DISSERTATION" conditionField="{meta.ThesisType}" conditionType="not" conditionValue="Masterarbeit" />
+
         
         <!-- A command is a step to perform. There can be several commands configured, and if so, they will be run one by one in the same order as they are defined. 
               @method: get | put | post | patch
