@@ -2,7 +2,7 @@
 title: ALMA API Plugin
 identifier: intranda_step_alma_api
 published: true
-description: This plugin was originally implemented to communicate with the ALMA system and process returned responses. However, thanks to its general design, it can also be used to connect to other systems via REST.
+description: This plugin was originally implemented to communicate with ALMA and process returned responses. However, thanks to its general design, it can also be used to connect to other systems via REST.
 ---
 ## Introduction
 This plugin is used to send requests to REST APIs, e.g. ALMA, and process the returned responses. Multiple commands can be configured to compile a complicated task. The plugin executes these commands one after the other in a defined order.
