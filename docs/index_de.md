@@ -3,6 +3,10 @@ title: ALMA API Plugin
 identifier: intranda_step_alma_api
 published: true
 description: Dieses Plugin wurde implementiert, um mit ALMA zu kommunizieren. Dank seines allgemeinen Designs kann es aber auch für die Anbindung an andere Systemen über REST verwendet werden.
+keywords:
+    - Goobi workflow
+    - Plugin
+    - Step Plugin
 ---
 ## Einführung
 Dieses Plugin wird verwendet, um Anfragen an REST-APIs, z.B. ALMA, zu senden und die zurückgegebenen Antworten zu verarbeiten. Mehrere Befehle können konfiguriert werden, um eine komplizierte Aufgabe zusammenzustellen. Das Plugin führt diese Befehle nacheinander in definierten Reihenfolge aus.
