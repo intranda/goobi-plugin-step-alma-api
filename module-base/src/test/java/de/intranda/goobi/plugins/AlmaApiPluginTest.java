@@ -193,7 +193,7 @@ public class AlmaApiPluginTest {
         PowerMock.mockStatic(MetadatenHelper.class);
         EasyMock.expect(MetadatenHelper.getMetaFileType(EasyMock.anyString())).andReturn("mets").anyTimes();
         EasyMock.expect(MetadatenHelper.getFileformatByName(EasyMock.anyString(), EasyMock.anyObject())).andReturn(ff).anyTimes();
-        EasyMock.expect(MetadatenHelper.getMetadataOfFileformat(EasyMock.anyObject(), EasyMock.anyBoolean()))
+        EasyMock.expect(MetadatenHelper.getMetadataOfFileformat(EasyMock.anyObject()))
                 .andReturn(Collections.emptyMap())
                 .anyTimes();
         PowerMock.replay(MetadatenHelper.class);
@@ -203,7 +203,6 @@ public class AlmaApiPluginTest {
 
         //        for (int i = 0; i < 12; i++) {
         MetadataManager.updateMetadata(1, Collections.emptyMap());
-        MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
 
         //        }
 
