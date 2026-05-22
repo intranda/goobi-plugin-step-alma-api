@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
-import java.util.Random;
+import java.security.SecureRandom;
 import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -92,7 +92,7 @@ public class AlmaApiStepPlugin implements IStepPluginVersion2 {
 
     private static final long serialVersionUID = 8600900911972831477L;
 
-    private static Random random = new Random();
+    private static final SecureRandom random = new SecureRandom();
 
     @Getter
     private String title = "intranda_step_alma_api";
